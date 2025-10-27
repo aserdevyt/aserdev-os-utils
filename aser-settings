@@ -101,7 +101,7 @@ clipboard_menu() {
   local options=("📋  Open Clipboard" "🧹  Clear Clipboard" "⬅️  Back")
   local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Clipboard")
   case "$choice" in
-    "📋  Open Clipboard") [[ -x ~/.local/bin/rofi-cliphist ]] && bash ~/.local/bin/rofi-cliphist || ask_install cliphist ;;
+    "📋  Open Clipboard") [[ -x rofi-cliphist ]] && bash rofi-cliphist || ask_install cliphist ;;
     "🧹  Clear Clipboard") command -v cliphist &>/dev/null && cliphist wipe && notify-send "Clipboard" "Cleared" || rofi -e "No cliphist" ;;
     "⬅️  Back") main_menu ;;
   esac
@@ -137,7 +137,7 @@ main_menu() {
     "📦  Install") install_menu ;;
     "📋  Clipboard") clipboard_menu ;;
     "😀  Emoji Picker") rofi -show emoji ;;
-    "📸  Screen Recording") ~/.local/bin/screenrec & ;;
+    "📸  Screen Recording") screenrec & ;;
     "🧠  System Info") sysinfo_menu ;;
     "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
