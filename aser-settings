@@ -71,7 +71,7 @@ settings_menu() {
     "🎨  Color Picker"
     "🔊  Audio Settings"
     "👤  Users"
-    "💽  Disk Management" # <-- Added Disk Management
+    "💽  Disk Management"
     "🗂️  All Settings"
     "⬅️  Back"
   )
@@ -86,7 +86,7 @@ settings_menu() {
     "🎨  Color Picker") ask_install hyprpicker || return; color=$(hyprpicker -a 2>/dev/null || true); [[ -n "$color" ]] && wl-copy "$color" && notify-send "Color" "Copied: $color" || rofi -e "No color picked 💀" ;;
     "🔊  Audio Settings") ask_install pavucontrol && pavucontrol & ;;
     "👤  Users") ask_install userctl && $TERMINAL -e sudo userctl ;;
-    "💽  Disk Management") ask_install gnome-disk-utility gnome-disks && gnome-disks & ;; # <-- Runs gnome-disks
+    "💽  Disk Management") ask_install gnome-disk-utility gnome-disks && gnome-disks & ;;
     "🗂️  All Settings") open_in_thunar "$HOME/.config" ;;
     "⬅️  Back") main_menu ;;
   esac
@@ -164,11 +164,6 @@ kill_window() {
   fi
 }
 
-# Basic URL encoding (replace spaces with + for browser compatibility)
-urlencode() {
-  echo "$1" | sed 's/ /+/g'
-}
-
 web_search() {
   local HIST_FILE="$HOME/.cache/web_search_history"
   local ENGINES=(
@@ -180,7 +175,15 @@ web_search() {
     "Aserdev-OS Wiki|https://aserdevyt.github.io/aserdev-os/wiki/"
   )
 
-  # urlencode func
+  # 🧠 FIX: Using the jq-based urlencode which is robust, and checking for jq availability.
+  if ! command -v jq &>/dev/null; then
+    if ! ask_install jq; then
+        rofi -e "jq is required for robust URL encoding. Please install it."
+        return 1
+    fi
+  fi
+  
+  # Robust URL encoding function using jq
   urlencode() {
     jq -rn --arg v "$1" '$v|@uri'
   }
