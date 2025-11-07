@@ -1,0 +1,223 @@
+#!/bin/bash
+
+# --- Configuration ---
+# The default shell for new users
+DEFAULT_SHELL="/bin/zsh"
+# The skeleton directory to copy from
+SKEL_DIR="/etc/skel"
+
+# --- Safety Checks ---
+
+# 1. Check for root privileges and re-launch with sudo if needed
+if [ "$(id -u)" -ne 0 ]; then
+   echo "This script requires root privileges. Attempting to re-run with sudo..."
+   # Re-execute this script with sudo
+   # "$0" is the path to the script itself
+   # "$@" passes all original arguments to the new instance
+   exec sudo "$0" "$@"
+   
+   # If exec fails (e.g., sudo not found or user cancels), exit
+   echo "Failed to acquire root privileges. Exiting." >&2
+   exit 1
+fi
+
+# 2. Check if 'dialog' is installed
+if ! command -v dialog &> /dev/null; then
+    echo "This script requires the 'dialog' package." >&2
+    echo "Please install it (e.g., 'sudo apt install dialog' or 'sudo yum install dialog')." >&2
+    exit 1
+fi
+
+# --- Functions ---
+
+# Function to find the correct sudo group name (sudo or wheel)
+get_sudo_group() {
+    if grep -q '^sudo:' /etc/group; then
+        echo "sudo"
+    elif grep -q '^wheel:' /etc/group; then
+        echo "wheel"
+    else
+        echo "" # No common sudo group found
+    fi
+}
+
+# Function to add a new user
+add_user() {
+    local username password
+
+    # Get username
+    username=$(dialog --inputbox "Enter new username:" 8 40 2>&1 >/dev/tty)
+    if [ -z "$username" ]; then
+        dialog --msgbox "Add user cancelled." 5 30
+        return 1
+    fi
+
+    # Get password
+    password=$(dialog --passwordbox "Enter password for $username:" 8 40 2>&1 >/dev/tty)
+    if [ -z "$password" ]; then
+        dialog --msgbox "Password entry cancelled. User not created." 6 40
+        return 1
+    fi
+
+    # Check if user already exists
+    if id -u "$username" &>/dev/null; then
+        dialog --msgbox "Error: User '$username' already exists." 6 40
+        return 1
+    fi
+
+    # Create the user
+    # -m: Create home directory (and copies from SKEL_DIR)
+    # -s: Set the login shell
+    useradd -m -s "$DEFAULT_SHELL" "$username"
+    
+    if [ $? -eq 0 ]; then
+        # Set the password
+        echo "$username:$password" | chpasswd
+        if [ $? -eq 0 ]; then
+            local sudo_message="User '$username' created successfully."
+            
+            # Ask about sudo privileges
+            dialog --yesno "Add user '$username' to the sudo group?" 6 50
+            if [ $? -eq 0 ]; then
+                # User selected 'Yes' for sudo
+                local sudo_group=$(get_sudo_group)
+                if [ -n "$sudo_group" ]; then
+                    usermod -aG "$sudo_group" "$username"
+                    sudo_message+="\nAdded to '$sudo_group' group."
+                    
+                    # Ask about passwordless sudo
+                    dialog --yesno "Enable PASSWORDLESS sudo for '$username'?" 8 60
+                    if [ $? -eq 0 ]; then
+                        # User selected 'Yes' for passwordless sudo
+                        local sudoer_file="/etc/sudoers.d/$username"
+                        echo "$username ALL=(ALL) NOPASSWD: ALL" > "$sudoer_file"
+                        chmod 0440 "$sudoer_file"
+                        sudo_message+="\nPasswordless sudo ENABLED."
+                    else
+                        sudo_message+="\nPasswordless sudo NOT enabled."
+                    fi
+                else
+                    sudo_message+="\nWARNING: Could not find 'sudo' or 'wheel' group."
+                fi
+            fi
+            dialog --msgbox "$sudo_message" 12 60
+        else
+            dialog --msgbox "User '$username' was created, but password set FAILED." 6 40
+        fi
+    else
+        dialog --msgbox "Failed to create user '$username'." 6 40
+    fi
+}
+
+# Function to delete a user
+delete_user() {
+    local username
+
+    # Get username
+    username=$(dialog --inputbox "Enter username to delete:" 8 40 2>&1 >/dev/tty)
+    if [ -z "$username" ]; then
+        dialog --msgbox "Delete user cancelled." 5 30
+        return 1
+    fi
+
+    # Safety check: do not delete root
+    if [ "$username" = "root" ]; then
+        dialog --msgbox "Error: Deleting the 'root' user is not allowed." 6 50
+        return 1
+    fi
+
+    # Safety check: see if user exists
+    if ! id -u "$username" &>/dev/null; then
+        dialog --msgbox "Error: User '$username' does not exist." 6 40
+        return 1
+    fi
+
+    # Confirm deletion
+    dialog --yesno "WARNING: Really delete user '$username' and their home directory?" 8 60
+    
+    if [ $? -eq 0 ]; then
+        # User selected 'Yes'
+        userdel -r "$username"
+        if [ $? -eq 0 ]; then
+            # Also remove the sudoers file if it exists
+            local sudoer_file="/etc/sudoers.d/$username"
+            if [ -f "$sudoer_file" ]; then
+                rm -f "$sudoer_file"
+            fi
+            dialog --msgbox "User '$username' and home directory deleted." 6 40
+        else
+            dialog --msgbox "Failed to delete user '$username'. User may be logged in." 6 60
+        fi
+    else
+        # User selected 'No' or pressed ESC
+        dialog --msgbox "Deletion cancelled." 5 30
+    fi
+}
+
+# Function to change a user's password
+change_password() {
+    local username password
+
+    # Get username
+    username=$(dialog --inputbox "Enter username to change password:" 8 40 2>&1 >/dev/tty)
+    if [ -z "$username" ]; then
+        dialog --msgbox "Change password cancelled." 5 30
+        return 1
+    fi
+
+    # Safety check: see if user exists
+    if ! id -u "$username" &>/dev/null; then
+        dialog --msgbox "Error: User '$username' does not exist." 6 40
+        return 1
+    fi
+
+    # Get new password
+    password=$(dialog --passwordbox "Enter new password for $username:" 8 40 2>&1 >/dev/tty)
+    if [ -z "$password" ]; then
+        dialog --msgbox "Password entry cancelled. Password not changed." 6 40
+        return 1
+    fi
+
+    # Change the password
+    echo "$username:$password" | chpasswd
+    if [ $? -eq 0 ]; then
+        dialog --msgbox "Password for '$username' changed successfully." 6 40
+    else
+        dialog --msgbox "Failed to change password for '$username'." 6 40
+    fi
+}
+
+# --- Main Script Logic ---
+
+while true; do
+    # We don't need the show_main_menu function,
+    # just call dialog directly in the loop.
+    CHOICE=$(dialog --clear --backtitle "Linux User Management" \
+                    --title "Main Menu" \
+                    --menu "Select an option:" 15 50 4 \
+                    1 "Add User" \
+                    2 "Delete User" \
+                    3 "Change Password" \
+                    4 "Exit" \
+                    2>&1 >/dev/tty)
+    
+    # Check the exit status of dialog
+    status=$?
+    if [ $status -ne 0 ]; then
+        # User pressed 'Cancel' or 'ESC'
+        clear
+        echo "Exiting."
+        exit 0
+    fi
+
+    case $CHOICE in
+        1) add_user ;;
+        2) delete_user ;;
+        3) change_password ;;
+        4)
+            clear
+            echo "Exiting."
+            exit 0
+            ;;
+    esac
+done
