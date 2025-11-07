@@ -175,10 +175,11 @@ web_search() {
   if [[ -n "$query" ]]; then
     local encoded_query
     encoded_query=$(urlencode "$query")
-    # Use xdg-open to launch the default browser with a Google search
-    xdg-open "https://www.google.com/search?q=$encoded_query" &>/dev/null &
+    # Use Bing instead of Google
+    xdg-open "https://www.bing.com/search?q=$encoded_query" &>/dev/null &
   fi
 }
+
 
 swaync_client() {
   # Sway Notification Center client to toggle the notification list
