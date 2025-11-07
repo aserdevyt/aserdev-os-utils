@@ -16,21 +16,30 @@ rofi_yn() {
 }
 
 ask_install() {
+  # Usage: ask_install <package_name> [binary_name]
   local pkg="$1"
   local bin="${2:-$1}"
   if command -v "$bin" &>/dev/null; then
     return 0
   fi
 
-  if ! rofi_yn "$pkg not found. Install?"; then
+  # Use the binary name in the prompt for clarity, but the package name for installation
+  if ! rofi_yn "$bin not found (Part of $pkg). Install $pkg?"; then
     return 1
   fi
 
+  # MODIFIED: Reverting to bash -c and adding || true for robustness
+  local install_cmd
   if command -v yay &>/dev/null; then
-    $TERMINAL -e bash -c "yay -S --noconfirm $pkg || read -p 'Install failed, press enter...'"
+    # Added || true to prevent set -e crash if installation fails (e.g., cancelled sudo)
+    install_cmd="yay -S --noconfirm \"$pkg\" || true" 
   else
-    $TERMINAL -e bash -c "sudo pacman -S --noconfirm $pkg || read -p 'Install failed, press enter...'"
+    # Added || true to prevent set -e crash if installation fails
+    install_cmd="sudo pacman -S --noconfirm \"$pkg\" || true"
   fi
+  
+  # MODIFIED: Switched back to 'bash -c'
+  $TERMINAL -e bash -c "${install_cmd}; read -p 'Installation complete. Press enter to exit...'"
 }
 
 open_in_thunar() {
@@ -47,6 +56,7 @@ open_file_gui_or_terminal() {
   if command -v pluma &>/dev/null; then
     pluma "$file" &
   else
+    # MODIFIED: Switched back to 'bash -c'
     $TERMINAL -e bash -c "$EDITOR '$file'; read -p 'Press enter to exit...'"
   fi
 }
@@ -69,7 +79,7 @@ settings_menu() {
     "🌀  Hyprland") open_in_thunar "$HOME/.config/hypr" ;;
     "🧭  Waybar") open_in_thunar "$HOME/.config/waybar" ;;
     "🎛️  Rofi") open_in_thunar "$HOME/.config/rofi" ;;
-    "🖼️  Wallpaper") if command -v waypaper &>/dev/null; then waypaper --open & else ask_install waypaper || rofi -e "No wallpaper tool found"; fi ;;
+    "🖼️  Wallpaper") if command -v waypaper &>/dev/null; then waypaper & else ask_install waypaper || rofi -e "No wallpaper tool found"; fi ;;
     "⌨️  Keybinds") [[ -f ~/.config/hypr/binds.conf ]] && open_file_gui_or_terminal "$HOME/.config/hypr/binds.conf" || rofi -e "binds.conf not found 💀" ;;
     "🎨  Color Picker") ask_install hyprpicker || return; color=$(hyprpicker -a 2>/dev/null || true); [[ -n "$color" ]] && wl-copy "$color" && notify-send "Color" "Copied: $color" || rofi -e "No color picked 💀" ;;
     "🔊  Audio Settings") ask_install pavucontrol && pavucontrol & ;;
@@ -89,10 +99,23 @@ install_menu() {
   local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Install")
 
   case "$choice" in
-    "🏗️  AUR (yay)") pkg=$(rofi -dmenu -p "AUR package:"); [[ -n "$pkg" ]] && $TERMINAL -e "yay -S $pkg" ;;
-    "📦  Pacman") pkg=$(rofi -dmenu -p "Pacman package:"); [[ -n "$pkg" ]] && $TERMINAL -e "sudo pacman -S $pkg" ;;
-    "📦  Flatpak") pkg=$(rofi -dmenu -p "Flatpak ID:"); [[ -n "$pkg" ]] && $TERMINAL -e "flatpak install -y $pkg" ;;
-    "🔄  Update All") $TERMINAL -e bash -c 'sudo pacman -Syu --noconfirm; flatpak update -y; yay -Syu --noconfirm; read -p "✅ Done! Press enter..."' ;;
+    # MODIFIED: Switched to bash -c, added || true
+    "🏗️  AUR (yay)") 
+        pkg=$(rofi -dmenu -p "AUR package:"); 
+        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "yay -S --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
+        
+    # MODIFIED: Switched to bash -c, added || true
+    "📦  Pacman") 
+        pkg=$(rofi -dmenu -p "Pacman package:"); 
+        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "sudo pacman -S --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
+        
+    # MODIFIED: Switched to bash -c, added || true
+    "📦  Flatpak") 
+        pkg=$(rofi -dmenu -p "Flatpak ID:"); 
+        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "flatpak install -y \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
+        
+    # MODIFIED: Switched to bash -c and added || true to all update commands
+    "🔄  Update All") $TERMINAL -e bash -c 'sudo pacman -Syu --noconfirm || true; flatpak update -y || true; yay -Syu --noconfirm || true; read -p "✅ Done! Press enter..."' ;;
     "⬅️  Back") main_menu ;;
   esac
 }
@@ -101,8 +124,8 @@ clipboard_menu() {
   local options=("📋  Open Clipboard" "🧹  Clear Clipboard" "⬅️  Back")
   local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Clipboard")
   case "$choice" in
-    "📋  Open Clipboard") [[ -x rofi-cliphist ]] && bash rofi-cliphist || ask_install cliphist ;;
-    "🧹  Clear Clipboard") command -v cliphist &>/dev/null && cliphist wipe && notify-send "Clipboard" "Cleared" || rofi -e "No cliphist" ;;
+    "📋  Open Clipboard") ask_install aserdev-os-utils rofi-cliphist && rofi-cliphist ;;
+    "🧹  Clear Clipboard") ask_install aserdev-os-utils cliphist && cliphist wipe && notify-send "Clipboard" "Cleared" || rofi -e "No cliphist" ;;
     "⬅️  Back") main_menu ;;
   esac
 }
@@ -111,9 +134,15 @@ sysinfo_menu() {
   local options=("🧠  Brokefetch" "⚡  Fastfetch" "📊  Btop" "⬅️  Back")
   local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "System Info")
   case "$choice" in
-    "🧠  Brokefetch") command -v brokefetch &>/dev/null && $TERMINAL -e brokefetch || ask_install brokefetch ;;
-    "⚡  Fastfetch") ask_install fastfetch && $TERMINAL -e fastfetch ;;
-    "📊  Btop") ask_install btop && $TERMINAL -e btop ;;
+    # MODIFIED: Switched back to bash -c
+    "🧠  Brokefetch") 
+        command -v brokefetch &>/dev/null && $TERMINAL -e bash -c "brokefetch; read -p 'Press enter to exit...'" || ask_install brokefetch ;;
+    # MODIFIED: Switched back to bash -c
+    "⚡  Fastfetch") 
+        ask_install fastfetch && $TERMINAL -e bash -c "fastfetch; read -p 'Press enter to exit...'" ;;
+    "📊  Btop") 
+        # btop is interactive, so it should exit cleanly after the user quits it. No need for a read-p.
+        ask_install btop && $TERMINAL -e btop ;;
     "⬅️  Back") main_menu ;;
   esac
 }
@@ -137,7 +166,10 @@ main_menu() {
     "📦  Install") install_menu ;;
     "📋  Clipboard") clipboard_menu ;;
     "😀  Emoji Picker") rofi -show emoji ;;
-    "📸  Screen Recording") screenrec & ;;
+    
+    # screenrec runs in the background
+    "📸  Screen Recording") ask_install aserdev-os-utils screenrec && screenrec & ;;
+    
     "🧠  System Info") sysinfo_menu ;;
     "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
