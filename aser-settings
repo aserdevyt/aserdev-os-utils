@@ -32,12 +32,12 @@ ask_install() {
   local install_cmd
   if command -v yay &>/dev/null; then
     # Added || true to prevent set -e crash if installation fails (e.g., cancelled sudo)
-    install_cmd="yay -S --noconfirm \"$pkg\" || true" 
+    install_cmd="yay -S --noconfirm \"$pkg\" || true"
   else
     # Added || true to prevent set -e crash if installation fails
     install_cmd="sudo pacman -S --noconfirm \"$pkg\" || true"
   fi
-  
+
   # MODIFIED: Switched back to 'bash -c'
   $TERMINAL -e bash -c "${install_cmd}; read -p 'Installation complete. Press enter to exit...'"
 }
@@ -70,6 +70,7 @@ settings_menu() {
     "⌨️  Keybinds"
     "🎨  Color Picker"
     "🔊  Audio Settings"
+    "👤  Users"
     "🗂️  All Settings"
     "⬅️  Back"
   )
@@ -83,6 +84,7 @@ settings_menu() {
     "⌨️  Keybinds") [[ -f ~/.config/hypr/binds.conf ]] && open_file_gui_or_terminal "$HOME/.config/hypr/binds.conf" || rofi -e "binds.conf not found 💀" ;;
     "🎨  Color Picker") ask_install hyprpicker || return; color=$(hyprpicker -a 2>/dev/null || true); [[ -n "$color" ]] && wl-copy "$color" && notify-send "Color" "Copied: $color" || rofi -e "No color picked 💀" ;;
     "🔊  Audio Settings") ask_install pavucontrol && pavucontrol & ;;
+    "👤  Users") ask_install userctl && $TERMINAL -e sudo userctl ;;
     "🗂️  All Settings") open_in_thunar "$HOME/.config" ;;
     "⬅️  Back") main_menu ;;
   esac
@@ -100,20 +102,20 @@ install_menu() {
 
   case "$choice" in
     # MODIFIED: Switched to bash -c, added || true
-    "🏗️  AUR (yay)") 
-        pkg=$(rofi -dmenu -p "AUR package:"); 
+    "🏗️  AUR (yay)")
+        pkg=$(rofi -dmenu -p "AUR package:");
         [[ -n "$pkg" ]] && $TERMINAL -e bash -c "yay -S --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
-        
+
     # MODIFIED: Switched to bash -c, added || true
-    "📦  Pacman") 
-        pkg=$(rofi -dmenu -p "Pacman package:"); 
+    "📦  Pacman")
+        pkg=$(rofi -dmenu -p "Pacman package:");
         [[ -n "$pkg" ]] && $TERMINAL -e bash -c "sudo pacman -S --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
-        
+
     # MODIFIED: Switched to bash -c, added || true
-    "📦  Flatpak") 
-        pkg=$(rofi -dmenu -p "Flatpak ID:"); 
+    "📦  Flatpak")
+        pkg=$(rofi -dmenu -p "Flatpak ID:");
         [[ -n "$pkg" ]] && $TERMINAL -e bash -c "flatpak install -y \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
-        
+
     # MODIFIED: Switched to bash -c and added || true to all update commands
     "🔄  Update All") $TERMINAL -e bash -c 'sudo pacman -Syu --noconfirm || true; flatpak update -y || true; yay -Syu --noconfirm || true; read -p "✅ Done! Press enter..."' ;;
     "⬅️  Back") main_menu ;;
@@ -135,12 +137,12 @@ sysinfo_menu() {
   local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "System Info")
   case "$choice" in
     # MODIFIED: Switched back to bash -c
-    "🧠  Brokefetch") 
+    "🧠  Brokefetch")
         command -v brokefetch &>/dev/null && $TERMINAL -e bash -c "brokefetch; read -p 'Press enter to exit...'" || ask_install brokefetch ;;
     # MODIFIED: Switched back to bash -c
-    "⚡  Fastfetch") 
+    "⚡  Fastfetch")
         ask_install fastfetch && $TERMINAL -e bash -c "fastfetch; read -p 'Press enter to exit...'" ;;
-    "📊  Btop") 
+    "📊  Btop")
         # btop is interactive, so it should exit cleanly after the user quits it. No need for a read-p.
         ask_install btop && $TERMINAL -e btop ;;
     "⬅️  Back") main_menu ;;
@@ -166,10 +168,10 @@ main_menu() {
     "📦  Install") install_menu ;;
     "📋  Clipboard") clipboard_menu ;;
     "😀  Emoji Picker") rofi -show emoji ;;
-    
+
     # screenrec runs in the background
     "📸  Screen Recording") ask_install aserdev-os-utils screenrec && screenrec & ;;
-    
+
     "🧠  System Info") sysinfo_menu ;;
     "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
