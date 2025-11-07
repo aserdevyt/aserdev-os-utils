@@ -170,15 +170,48 @@ urlencode() {
 }
 
 web_search() {
+  local HIST_FILE="$HOME/.cache/web_search_history"
+  local ENGINES=(
+    "Google|https://www.google.com/search?q="
+    "Bing|https://www.bing.com/search?q="
+    "DuckDuckGo|https://duckduckgo.com/?q="
+    "Wikipedia|https://en.wikipedia.org/wiki/Special:Search?search="
+    "ArchWiki|https://wiki.archlinux.org/index.php?search="
+    "Aserdev-OS Wiki|https://aserdevyt.github.io/aserdev-os/wiki/"
+  )
+
+  # urlencode func
+  urlencode() {
+    jq -rn --arg v "$1" '$v|@uri'
+  }
+
+  # pick engine 🧠
+  local engine_choice engine_name engine_url
+  engine_choice=$(printf "%s\n" "${ENGINES[@]%%|*}" | rofi -dmenu -p "🌐 Choose engine:")
+  [[ -z "$engine_choice" ]] && return
+
+  for e in "${ENGINES[@]}"; do
+    engine_name="${e%%|*}"
+    engine_url="${e#*|}"
+    [[ "$engine_name" == "$engine_choice" ]] && break
+  done
+
+  # search query (with history 🧠)
+  mkdir -p "$(dirname "$HIST_FILE")"
+  touch "$HIST_FILE"
   local query
-  query=$(rofi -dmenu -p "🌐 Web Search:")
-  if [[ -n "$query" ]]; then
-    local encoded_query
-    encoded_query=$(urlencode "$query")
-    # Use Bing instead of Google
-    xdg-open "https://www.bing.com/search?q=$encoded_query" &>/dev/null &
-  fi
+  query=$(tac "$HIST_FILE" | rofi -dmenu -p "🔎 Search:" -mesg "Engine: $engine_name (Enter to search, Esc to cancel)")
+  [[ -z "$query" ]] && return
+
+  # save to history (no dupes)
+  grep -Fxq "$query" "$HIST_FILE" || echo "$query" >> "$HIST_FILE"
+
+  # encode + open 🌍
+  local encoded_query
+  encoded_query=$(urlencode "$query")
+  xdg-open "${engine_url}${encoded_query}" &>/dev/null &
 }
+
 
 
 swaync_client() {
