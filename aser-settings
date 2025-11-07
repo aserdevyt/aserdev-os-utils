@@ -71,6 +71,7 @@ settings_menu() {
     "🎨  Color Picker"
     "🔊  Audio Settings"
     "👤  Users"
+    "💽  Disk Management" # <-- Added Disk Management
     "🗂️  All Settings"
     "⬅️  Back"
   )
@@ -85,6 +86,7 @@ settings_menu() {
     "🎨  Color Picker") ask_install hyprpicker || return; color=$(hyprpicker -a 2>/dev/null || true); [[ -n "$color" ]] && wl-copy "$color" && notify-send "Color" "Copied: $color" || rofi -e "No color picked 💀" ;;
     "🔊  Audio Settings") ask_install pavucontrol && pavucontrol & ;;
     "👤  Users") ask_install userctl && $TERMINAL -e sudo userctl ;;
+    "💽  Disk Management") ask_install gnome-disk-utility gnome-disks && gnome-disks & ;; # <-- Runs gnome-disks
     "🗂️  All Settings") open_in_thunar "$HOME/.config" ;;
     "⬅️  Back") main_menu ;;
   esac
@@ -149,14 +151,79 @@ sysinfo_menu() {
   esac
 }
 
+kill_window() {
+  # Use hyprctl to kill the active window for Wayland/Hyprland
+  if command -v hyprctl &>/dev/null; then
+    hyprctl dispatch killactive ""
+  # Fallback to xkill for general X11 environments
+  elif command -v xkill &>/dev/null; then
+    xkill
+    notify-send "Kill Window" "Click the window you want to close."
+  else
+    rofi -e "No window kill tool (hyprctl or xkill) found."
+  fi
+}
+
+# Basic URL encoding (replace spaces with + for browser compatibility)
+urlencode() {
+  echo "$1" | sed 's/ /+/g'
+}
+
+web_search() {
+  local query
+  query=$(rofi -dmenu -p "🌐 Web Search:")
+  if [[ -n "$query" ]]; then
+    local encoded_query
+    encoded_query=$(urlencode "$query")
+    # Use xdg-open to launch the default browser with a Google search
+    xdg-open "https://www.google.com/search?q=$encoded_query" &>/dev/null &
+  fi
+}
+
+swaync_client() {
+  # Sway Notification Center client to toggle the notification list
+  # Package name is typically 'swaync' but the binary is 'swaync-client'
+  ask_install swaync swaync-client && swaync-client -t
+}
+
+unmount_device_menu() {
+  # Use findmnt to list mounted paths that are NOT the root, boot, or special filesystems, 
+  # focusing on removable devices likely mounted by the user.
+  local options
+  # Get TARGET and SOURCE, format them nicely, and filter out system paths
+  options=$(findmnt -lnr -o TARGET,SOURCE -t nosquashfs,nofs,nosysfs,noproc,nodevtmpfs | grep -v '^/dev\|^/boot\|^/sys\|^/proc\|^/run\|^/var' | sed 's/ / | /' )
+
+  if [[ -z "$options" ]]; then
+    rofi -e "No removable devices currently mounted."
+    return
+  fi
+
+  local choice
+  choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Unmount Device")
+
+  if [[ -n "$choice" ]]; then
+    # Extract the mount point (TARGET) which is the first field before the separator ' | '
+    local mount_point
+    mount_point=$(echo "$choice" | awk -F ' | ' '{print $1}')
+
+    # Execute umount in a terminal, requiring sudo
+    rofi_yn "Unmount '$mount_point'? (Requires sudo)" && \
+    $TERMINAL -e bash -c "sudo umount \"$mount_point\"; read -p 'Unmount complete. Press enter...'"
+  fi
+}
+
 main_menu() {
   local options=(
     "⚙️  Settings"
     "🚀  Run Command"
+    "🌐  Web Search"
+    "🔔  Notifications"
+    "🗄️  Unmount Device"
     "📦  Install"
     "📋  Clipboard"
     "😀  Emoji Picker"
     "📸  Screen Recording"
+    "❌  Kill Window"
     "🧠  System Info"
     "🔋  Power"
     "ℹ️  About"
@@ -165,12 +232,17 @@ main_menu() {
   case "$choice" in
     "⚙️  Settings") settings_menu ;;
     "🚀  Run Command") rofi -show run ;;
+    "🌐  Web Search") web_search ;;
+    "🔔  Notifications") swaync_client ;;
+    "🗄️  Unmount Device") unmount_device_menu ;;
     "📦  Install") install_menu ;;
     "📋  Clipboard") clipboard_menu ;;
     "😀  Emoji Picker") rofi -show emoji ;;
 
     # screenrec runs in the background
     "📸  Screen Recording") ask_install aserdev-os-utils screenrec && screenrec & ;;
+
+    "❌  Kill Window") kill_window ;;
 
     "🧠  System Info") sysinfo_menu ;;
     "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
