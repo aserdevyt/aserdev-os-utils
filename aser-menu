@@ -61,36 +61,7 @@ open_file_gui_or_terminal() {
   fi
 }
 
-settings_menu() {
-  local options=(
-    "🌀  Hyprland"
-    "🧭  Waybar"
-    "🎛️  Rofi"
-    "🖼️  Wallpaper"
-    "⌨️  Keybinds"
-    "🎨  Color Picker"
-    "🔊  Audio Settings"
-    "👤  Users"
-    "💽  Disk Management"
-    "🗂️  All Settings"
-    "⬅️  Back"
-  )
-  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Settings")
 
-  case "$choice" in
-    "🌀  Hyprland") open_in_thunar "$HOME/.config/hypr" ;;
-    "🧭  Waybar") open_in_thunar "$HOME/.config/waybar" ;;
-    "🎛️  Rofi") open_in_thunar "$HOME/.config/rofi" ;;
-    "🖼️  Wallpaper") if command -v waypaper &>/dev/null; then waypaper & else ask_install waypaper || rofi -e "No wallpaper tool found"; fi ;;
-    "⌨️  Keybinds") [[ -f ~/.config/hypr/binds.conf ]] && open_file_gui_or_terminal "$HOME/.config/hypr/binds.conf" || rofi -e "binds.conf not found 💀" ;;
-    "🎨  Color Picker") ask_install hyprpicker || return; color=$(hyprpicker -a 2>/dev/null || true); [[ -n "$color" ]] && wl-copy "$color" && notify-send "Color" "Copied: $color" || rofi -e "No color picked 💀" ;;
-    "🔊  Audio Settings") ask_install pavucontrol && pavucontrol & ;;
-    "👤  Users") ask_install userctl && $TERMINAL -e sudo userctl ;;
-    "💽  Disk Management") ask_install gnome-disk-utility gnome-disks && gnome-disks & ;;
-    "🗂️  All Settings") open_in_thunar "$HOME/.config" ;;
-    "⬅️  Back") main_menu ;;
-  esac
-}
 
 install_menu() {
   local options=(
@@ -172,7 +143,6 @@ web_search() {
     "DuckDuckGo|https://duckduckgo.com/?q="
     "Wikipedia|https://en.wikipedia.org/wiki/Special:Search?search="
     "ArchWiki|https://wiki.archlinux.org/index.php?search="
-    "Aserdev-OS Wiki|https://aserdevyt.github.io/aserdev-os/wiki/"
   )
 
   # 🧠 FIX: Using the jq-based urlencode which is robust, and checking for jq availability.
@@ -223,39 +193,12 @@ swaync_client() {
   ask_install swaync swaync-client && swaync-client -t
 }
 
-unmount_device_menu() {
-  # Use findmnt to list mounted paths that are NOT the root, boot, or special filesystems, 
-  # focusing on removable devices likely mounted by the user.
-  local options
-  # Get TARGET and SOURCE, format them nicely, and filter out system paths
-  options=$(findmnt -lnr -o TARGET,SOURCE -t nosquashfs,nofs,nosysfs,noproc,nodevtmpfs | grep -v '^/dev\|^/boot\|^/sys\|^/proc\|^/run\|^/var' | sed 's/ / | /' )
-
-  if [[ -z "$options" ]]; then
-    rofi -e "No removable devices currently mounted."
-    return
-  fi
-
-  local choice
-  choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Unmount Device")
-
-  if [[ -n "$choice" ]]; then
-    # Extract the mount point (TARGET) which is the first field before the separator ' | '
-    local mount_point
-    mount_point=$(echo "$choice" | awk -F ' | ' '{print $1}')
-
-    # Execute umount in a terminal, requiring sudo
-    rofi_yn "Unmount '$mount_point'? (Requires sudo)" && \
-    $TERMINAL -e bash -c "sudo umount \"$mount_point\"; read -p 'Unmount complete. Press enter...'"
-  fi
-}
-
 main_menu() {
   local options=(
     "⚙️  Settings"
     "🚀  Run Command"
     "🌐  Web Search"
     "🔔  Notifications"
-    "🗄️  Unmount Device"
     "📦  Install"
     "📋  Clipboard"
     "😀  Emoji Picker"
@@ -267,11 +210,10 @@ main_menu() {
   )
   local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Aser Control Center")
   case "$choice" in
-    "⚙️  Settings") settings_menu ;;
+    "⚙️  Settings") aser-settings ;;
     "🚀  Run Command") rofi -show run ;;
     "🌐  Web Search") web_search ;;
     "🔔  Notifications") swaync_client ;;
-    "🗄️  Unmount Device") unmount_device_menu ;;
     "📦  Install") install_menu ;;
     "📋  Clipboard") clipboard_menu ;;
     "😀  Emoji Picker") rofi -show emoji ;;
