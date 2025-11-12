@@ -4,20 +4,24 @@
 
 OUTPUT="$HOME/Videos/recording-$(date +%Y%m%d-%H%M%S).mp4"
 
-MENU=$(printf "🎬 Record Fullscreen\n📐 Record Area\n🛑 Stop Recording\n📷 full screenshot\n📸 area screenshot" | rofi -dmenu -p "Screen Recorder:")
+MENU=$(printf "🎥 Record Fullscreen\n📹 Record Area\n🛑 Stop Recording\n📷 full screenshot\n📸 area screenshot" | rofi -dmenu -p "Screen Recorder:")
 
 case "$MENU" in
     "📷 full screenshot")
+        sleep 1
         grimblast copysave screen --notify
         ;;
     "📸 area screenshot")
+        sleep 1
         grimblast copysave area --notify
         ;;
-    "🎬 Record Fullscreen")
+    "🎥 Record Fullscreen")
+        sleep 1
         notify-send "📹 Recording Started" "Mode: Fullscreen"
         wf-recorder -f "$OUTPUT" &
         ;;
-    "📐 Record Area")
+    "📹 Record Area")
+        sleep 1
         notify-send "📹 Select Area to Record"
         wf-recorder -g "$(slurp)" -f "$OUTPUT" &
         ;;

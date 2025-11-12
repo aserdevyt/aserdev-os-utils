@@ -32,10 +32,10 @@ ask_install() {
   local install_cmd
   if command -v yay &>/dev/null; then
     # Added || true to prevent set -e crash if installation fails (e.g., cancelled sudo)
-    install_cmd="yay -S --noconfirm \"$pkg\" || true"
+    install_cmd="yay -Sy --noconfirm \"$pkg\" || true"
   else
     # Added || true to prevent set -e crash if installation fails
-    install_cmd="sudo pacman -S --noconfirm \"$pkg\" || true"
+    install_cmd="sudo pacman -Sy --noconfirm \"$pkg\" || true"
   fi
 
   # MODIFIED: Switched back to 'bash -c'
@@ -77,12 +77,12 @@ install_menu() {
     # MODIFIED: Switched to bash -c, added || true
     "🏗️  AUR (yay)")
         pkg=$(rofi -dmenu -p "AUR package:");
-        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "yay -S --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
+        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "yay -Sy --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
 
     # MODIFIED: Switched to bash -c, added || true
     "📦  Pacman")
         pkg=$(rofi -dmenu -p "Pacman package:");
-        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "sudo pacman -S --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
+        [[ -n "$pkg" ]] && $TERMINAL -e bash -c "sudo pacman -Sy --noconfirm \"$pkg\" || true; read -p 'Press enter to exit...'" ;;
 
     # MODIFIED: Switched to bash -c, added || true
     "📦  Flatpak")
@@ -202,8 +202,9 @@ main_menu() {
     "📦  Install"
     "📋  Clipboard"
     "😀  Emoji Picker"
-    "📸  Screen Recording"
+    "📸  Screen capture"
     "❌  Kill Window"
+    "💬 discord"
     "🧠  System Info"
     "🔋  Power"
     "ℹ️  About"
@@ -217,12 +218,9 @@ main_menu() {
     "📦  Install") install_menu ;;
     "📋  Clipboard") clipboard_menu ;;
     "😀  Emoji Picker") rofi -show emoji ;;
-
-    # screenrec runs in the background
-    "📸  Screen Recording") ask_install aserdev-os-utils screenrec && screenrec & ;;
-
+    "📸  Screen capture") ask_install aserdev-os-utils screenrec && screenrec ;;
     "❌  Kill Window") kill_window ;;
-
+    "💬 discord") discord ;;
     "🧠  System Info") sysinfo_menu ;;
     "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
