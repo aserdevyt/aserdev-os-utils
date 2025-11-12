@@ -8,6 +8,14 @@ TERMINAL="${TERMINAL:-kitty}"
 EDITOR="${EDITOR:-nano}"
 ROFI_CMD="${ROFI_CMD:-rofi -dmenu -i -p}"
 
+run_discord() {
+  if command -v discord &>/dev/null; then
+    discord &
+  else
+    ask_install discord && discord &
+  fi
+}
+
 rofi_yn() {
   local prompt="${1:-Proceed?}"
   local ans
