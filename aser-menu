@@ -204,7 +204,7 @@ main_menu() {
     "😀  Emoji Picker"
     "📸  Screen capture"
     "❌  Kill Window"
-    "💬 discord"
+    "💬  discord"
     "🧠  System Info"
     "🔋  Power"
     "ℹ️  About"
@@ -220,7 +220,7 @@ main_menu() {
     "😀  Emoji Picker") rofi -show emoji ;;
     "📸  Screen capture") ask_install aserdev-os-utils screenrec && screenrec ;;
     "❌  Kill Window") kill_window ;;
-    "💬 discord") discord ;;
+    "💬  discord") discord ;;
     "🧠  System Info") sysinfo_menu ;;
     "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
