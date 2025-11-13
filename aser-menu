@@ -230,7 +230,7 @@ main_menu() {
     "❌  Kill Window") kill_window ;;
     "💬  discord") discord ;;
     "🧠  System Info") sysinfo_menu ;;
-    "🔋  Power") command -v wlogout &>/dev/null && wlogout || rofi -e "wlogout not installed" ;;
+    "🔋  Power") aser-power;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
     *) exit 0 ;;
   esac

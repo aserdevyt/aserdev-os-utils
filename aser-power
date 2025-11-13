@@ -1,0 +1,13 @@
+#!/usr/bin/bash
+
+MENU=$(printf "🔁 reboot\n🪫 poweroff\n🧑🏻 logout\n🔁🔫 force reboot\n🪫🔫 force poweroff\n😔 cancel" | rofi -dmenu -p "power🔋:")
+
+
+case "$MENU" in
+"🔁 reboot") reboot;;
+"🪫 poweroff") poweroff;;
+"🧑🏻 logout") hyprctl dispatch exit;;
+"🔁🔫 force reboot") pkexec reboot;;
+"🪫🔫 force poweroff") pkexec poweroff;;
+"😔 cancel") exit 0;;
+esac
