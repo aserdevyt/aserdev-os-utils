@@ -29,8 +29,8 @@ ask_install() {
   local bin="${2:-$1}"
   if ! command -v "$bin" &>/dev/null; then
     if rofi_yn "Install $pkg?"; then
-      if command -v install &>/dev/null; then
-        install "$pkg"
+      if command -v ins &>/dev/null; then
+        ins "$pkg"
       else
         rofi -e "No install command found. Please install $pkg manually."
         return 1
