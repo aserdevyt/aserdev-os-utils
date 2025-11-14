@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ls-updates for Waybar
+# ls-updates for Waybar with emojis
 
 PACMAN=$(checkupdates 2>/dev/null | wc -l)
 YAY=$(yay -Qu 2>/dev/null | wc -l)
@@ -7,14 +7,17 @@ FLATPAK=$(flatpak update --dry-run 2>/dev/null | grep -c 'Updating')
 
 TOTAL=$((PACMAN + YAY + FLATPAK))
 
-# decide class based on number of updates
+# decide class & emoji
 if [ "$TOTAL" -eq 0 ]; then
     CLASS="ok"
+    ICON="✅"
 elif [ "$TOTAL" -le 10 ]; then
     CLASS="warn"
+    ICON="⚠️"
 else
     CLASS="critical"
+    ICON="💀"
 fi
 
-echo "$TOTAL updates"
+echo "$TOTAL $ICON"
 echo "{\"tooltip\":\"Pacman: $PACMAN\\nYay: $YAY\\nFlatpak: $FLATPAK\", \"class\":\"$CLASS\"}"
