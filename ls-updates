@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# waybar updates module for pacman/yay/flatpak
+
+# get pacman/yay updates
+PACMAN_UPDATES=$(checkupdates 2>/dev/null | wc -l)
+YAY_UPDATES=$(yay -Qu 2>/dev/null | wc -l)
+
+# get flatpak updates
+FLATPAK_UPDATES=$(flatpak update --dry-run 2>/dev/null | grep -c 'Updating')
+
+TOTAL=$((PACMAN_UPDATES + YAY_UPDATES + FLATPAK_UPDATES))
+
+# output for waybar
+echo "$TOTAL updates"
+
+# optional: show tooltip
+echo "{\"tooltip\":\"Pacman: $PACMAN_UPDATES\\nYay: $YAY_UPDATES\\nFlatpak: $FLATPAK_UPDATES\"}"

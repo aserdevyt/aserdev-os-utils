@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+# COLORS
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+MAGENTA="\e[35m"
+CYAN="\e[36m"
+RESET="\e[0m"
+
+PKG="$1"
+
+if [ -z "$PKG" ]; then
+    echo "usage: install <package>"
+    exit 1
+fi
+
+# 🔒 check pacman lock
+if [ -f /var/lib/pacman/db.lck ]; then
+    echo -e "${RED}⚠ Warning:${RESET} Another package manager is running."
+    echo -e "${YELLOW}Please close it before proceeding.${RESET}"
+    read -p "$(echo -e "${MAGENTA}Are you sure you want to continue? (y/n): ${RESET}")" choice
+
+    if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
+        echo -e "${RED}Exiting...${RESET}"
+        exit 1
+    else
+        echo -e "${CYAN}Removing lock file...${RESET}"
+        sudo rm /var/lib/pacman/db.lck
+    fi
+fi
+
+echo -e "${CYAN}📦 Trying to install: ${MAGENTA}$PKG${RESET}"
+# 1️⃣ yay first
+if command -v yay &>/dev/null; then
+    echo -e "${YELLOW}=> Trying yay…${RESET}"
+
+    # check if yay can find the package before installing
+    if yay -Si "$PKG" &>/dev/null || yay -Sia "$PKG" &>/dev/null; then
+        if yay -Sy --noconfirm "$PKG"; then
+            echo -e "${GREEN}✅ Installed with yay!${RESET}"
+            exit 0
+        fi
+    else
+        echo -e "${RED}❌ yay: package not found${RESET}"
+    fi
+fi
+
+
+# 2️⃣ pacman
+echo -e "${YELLOW}=> Trying pacman…${RESET}"
+if sudo pacman -Sy --noconfirm "$PKG"; then
+    echo -e "${GREEN}✅ Installed with pacman!${RESET}"
+    exit 0
+else
+    echo -e "${RED}❌ pacman failed…${RESET}"
+fi
+
+# 3️⃣ flatpak
+if command -v flatpak &>/dev/null; then
+    echo -e "${YELLOW}=> Trying flatpak…${RESET}"
+    if flatpak install -y "$PKG"; then
+        echo -e "${GREEN}✅ Installed with flatpak!${RESET}"
+        exit 0
+    else
+        echo -e "${RED}❌ flatpak also cooked 💀${RESET}"
+    fi
+fi
+
+echo -e "${RED}💀 bro… I tried EVERYTHING. That package does NOT exist.${RESET}"
+exit 1

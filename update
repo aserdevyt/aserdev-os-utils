@@ -1,0 +1,59 @@
+#!/usr/bin/bash
+
+# COLORS 😎🔥
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+BLUE="\e[34m"
+MAGENTA="\e[35m"
+CYAN="\e[36m"
+RESET="\e[0m"
+
+# Script to update using yay(if it exists) and pacman and flatpak(if it exists)
+
+# check pacman lock
+if [ -f /var/lib/pacman/db.lck ]; then
+    echo -e "${RED}⚠ Warning:${RESET} Another package manager is running."
+    echo -e "${YELLOW}Please close it before proceeding.${RESET}"
+    read -p "$(echo -e "${MAGENTA}Are you sure you want to continue? (y/n): ${RESET}")" choice
+
+    if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
+        echo -e "${RED}Exiting...${RESET}"
+        exit 1
+    else
+        echo -e "${CYAN}Removing lock file...${RESET}"
+        sudo rm /var/lib/pacman/db.lck
+    fi
+fi
+
+echo -e "${GREEN}=> Starting system update...${RESET}"
+sleep 2
+sudo pacman -Syu --noconfirm
+clear
+
+echo -e "${GREEN}=> System update complete!${RESET}"
+echo -e "${CYAN}=> Checking for AUR and Flatpak updates...${RESET}"
+sleep 2
+
+echo -e "${MAGENTA}=> Installing AUR and Flatpak updates...${RESET}"
+sleep 2
+
+# yay updates
+if command -v yay &> /dev/null; then
+    echo -e "${YELLOW}=> Updating AUR packages...${RESET}"
+    sleep 2
+    yay -Syu --noconfirm
+    clear
+fi
+
+# flatpak updates
+if command -v flatpak &> /dev/null; then
+    echo -e "${BLUE}=> Updating Flatpak packages...${RESET}"
+    sleep 2
+    flatpak update -y
+    clear
+fi
+
+echo -e "${GREEN}=> All updates complete! 🎉${RESET}"
+sleep 1
+exit 0
