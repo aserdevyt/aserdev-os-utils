@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# waybar updates module for pacman/yay/flatpak
+# ls-updates for Waybar
 
-# get pacman/yay updates
-PACMAN_UPDATES=$(checkupdates 2>/dev/null | wc -l)
-YAY_UPDATES=$(yay -Qu 2>/dev/null | wc -l)
+PACMAN=$(checkupdates 2>/dev/null | wc -l)
+YAY=$(yay -Qu 2>/dev/null | wc -l)
+FLATPAK=$(flatpak update --dry-run 2>/dev/null | grep -c 'Updating')
 
-# get flatpak updates
-FLATPAK_UPDATES=$(flatpak update --dry-run 2>/dev/null | grep -c 'Updating')
+TOTAL=$((PACMAN + YAY + FLATPAK))
 
-TOTAL=$((PACMAN_UPDATES + YAY_UPDATES + FLATPAK_UPDATES))
+# decide class based on number of updates
+if [ "$TOTAL" -eq 0 ]; then
+    CLASS="ok"
+elif [ "$TOTAL" -le 10 ]; then
+    CLASS="warn"
+else
+    CLASS="critical"
+fi
 
-# output for waybar
 echo "$TOTAL updates"
-
-# optional: show tooltip
-echo "{\"tooltip\":\"Pacman: $PACMAN_UPDATES\\nYay: $YAY_UPDATES\\nFlatpak: $FLATPAK_UPDATES\"}"
+echo "{\"tooltip\":\"Pacman: $PACMAN\\nYay: $YAY\\nFlatpak: $FLATPAK\", \"class\":\"$CLASS\"}"
