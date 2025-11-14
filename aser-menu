@@ -27,27 +27,19 @@ ask_install() {
   # Usage: ask_install <package_name> [binary_name]
   local pkg="$1"
   local bin="${2:-$1}"
-  if command -v "$bin" &>/dev/null; then
-    return 0
+  if ! command -v "$bin" &>/dev/null; then
+    if rofi_yn "Install $pkg?"; then
+      if command -v install &>/dev/null; then
+        install "$pkg"
+      else
+        rofi -e "No install command found. Please install $pkg manually."
+        return 1
+      fi
+    else
+      return 1
+    fi
   fi
-
-  # Use the binary name in the prompt for clarity, but the package name for installation
-  if ! rofi_yn "$bin not found (Part of $pkg). Install $pkg?"; then
-    return 1
-  fi
-
-  # MODIFIED: Reverting to bash -c and adding || true for robustness
-  local install_cmd
-  if command -v yay &>/dev/null; then
-    # Added || true to prevent set -e crash if installation fails (e.g., cancelled sudo)
-    install_cmd="yay -Sy --noconfirm \"$pkg\" || true"
-  else
-    # Added || true to prevent set -e crash if installation fails
-    install_cmd="sudo pacman -Sy --noconfirm \"$pkg\" || true"
-  fi
-
-  # MODIFIED: Switched back to 'bash -c'
-  $TERMINAL -e bash -c "${install_cmd}; read -p 'Installation complete. Press enter to exit...'"
+  return 0
 }
 
 open_in_thunar() {
