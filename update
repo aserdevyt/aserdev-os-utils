@@ -29,7 +29,7 @@ fi
 echo -e "${GREEN}=> Starting system update...${RESET}"
 sleep 2
 sudo pacman -Syu --noconfirm
-clear
+
 
 echo -e "${GREEN}=> System update complete!${RESET}"
 echo -e "${CYAN}=> Checking for AUR and Flatpak updates...${RESET}"
@@ -43,7 +43,7 @@ if command -v yay &> /dev/null; then
     echo -e "${YELLOW}=> Updating AUR packages...${RESET}"
     sleep 2
     yay -Syu --noconfirm
-    clear
+    
 fi
 
 # flatpak updates
@@ -51,7 +51,7 @@ if command -v flatpak &> /dev/null; then
     echo -e "${BLUE}=> Updating Flatpak packages...${RESET}"
     sleep 2
     flatpak update -y
-    clear
+    
 fi
 
 echo -e "${GREEN}=> All updates complete! 🎉${RESET}"

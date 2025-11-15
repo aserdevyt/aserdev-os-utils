@@ -77,7 +77,7 @@ case "$MENU" in
         local pkg_name
         pkg_name=$(rofi -dmenu -p "Enter package name to install:")
         if [[ -n "$pkg_name" ]]; then
-            ask_install "$pkg_name"
+            $TERMINAL -e bash -c "ins '$pkg_name'; read -p 'Press enter to exit...'"
         fi
         ;;
     "⬅️ Back")
