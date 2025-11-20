@@ -1,9 +1,17 @@
 #!/bin/bash
+# 📋 aserdev's cursed clipboard selector 💀
+# this script exists because I cba to remember what I copied 5 minutes ago
 
-selected=$(cliphist list | rofi -dmenu -p "📋 Clipboard" -theme ~/.config/rofi/clipboard.rasi)
+# open the gates of hell (aka cliphist)
+selected=$(cliphist list | rofi -dmenu -p "📋 Clipboard (pick something bro)" -theme ~/.config/rofi/clipboard.rasi)
 
+# if the user actually picked something (rare)
 if [ -n "$selected" ]; then
+    # decode the mysterious hieroglyphics
     cliphist decode <<< "$selected" | wl-copy
-    notify-send "✅ Copied to clipboard"
+    
+    notify-send "✅ Copied" "Congrats bro, you used your clipboard like a functional human 💀"
+else
+    # user pressed escape like a coward
+    notify-send "💀 Nothing Selected" "bro why open it if you're not picking anything"
 fi
-

@@ -1,13 +1,38 @@
 #!/usr/bin/bash
+# ⚡ aserdev's cursed power menu 💀
+# dependencies: rofi, hyprland, pkexec
+# written at 3AM fueled by bad decisions
 
-MENU=$(printf "🔁 reboot\n🪫 poweroff\n🧑🏻 logout\n🔁🔫 force reboot\n🪫🔫 force poweroff\n😔 cancel" | rofi -dmenu -p "power🔋:")
-
+MENU=$(printf "🔁 reboot\n🪫 poweroff\n🧑🏻 logout\n🔁🔫 force reboot\n🪫🔫 force poweroff\n😔 cancel" \
+    | rofi -dmenu -p "power🔋: choose wisely or regret it:")
 
 case "$MENU" in
-"🔁 reboot") reboot;;
-"🪫 poweroff") poweroff;;
-"🧑🏻 logout") hyprctl dispatch exit;;
-"🔁🔫 force reboot") pkexec reboot;;
-"🪫🔫 force poweroff") pkexec poweroff;;
-"😔 cancel") exit 0;;
+    "🔁 reboot")
+        echo "♻️ rebooting like nothing happened..."
+        reboot
+        ;;
+    "🪫 poweroff")
+        echo "⚡ powering off, hope you saved your browser tabs 😭"
+        poweroff
+        ;;
+    "🧑🏻 logout")
+        echo "🧑🏻 logging out… hyprland pls don’t crash"
+        hyprctl dispatch exit
+        ;;
+    "🔁🔫 force reboot")
+        echo "💀 FORCE REBOOT ENGAGED. pray."
+        pkexec reboot
+        ;;
+    "🪫🔫 force poweroff")
+        echo "💀 FORCE POWEROFF ENGAGED. goodbye cruel world."
+        pkexec poweroff
+        ;;
+    "😔 cancel")
+        echo "🙄 canceled, like your motivation today"
+        exit 0
+        ;;
+    *)
+        echo "🤡 invalid option, nice try"
+        exit 1
+        ;;
 esac

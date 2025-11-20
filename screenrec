@@ -1,39 +1,50 @@
 #!/usr/bin/env bash
 # 🎥 aserdev's wf-recorder Rofi menu 💀
-# Dependencies: wf-recorder, rofi (or wofi)
+# written at 3AM because why not ruin my sleep schedule
+# dependencies: wf-recorder, rofi, grimblast, slurp (aka: pain)
 
 OUTPUT="$HOME/Videos/recording-$(date +%Y%m%d-%H%M%S).mp4"
 
-MENU=$(printf "🎥 Record Fullscreen\n📹 Record Area\n🛑 Stop Recording\n📷 full screenshot\n📸 area screenshot" | rofi -dmenu -p "Screen Recorder:")
+# 🧠 the unholy menu
+MENU=$(printf "🎥 Record Fullscreen\n📹 Record Area\n🛑 Stop Recording\n📷 full screenshot\n📸 area screenshot" \
+    | rofi -dmenu -p "Screen Recorder (pls don't break):")
 
 case "$MENU" in
     "📷 full screenshot")
         sleep 1
-        grimblast copysave screen --notify
+        notify-send "📸 Screenshot" "Full screen captured 🧍"
+        grimblast copysave screen --notify || notify-send "💀 grimblast died" "skill issue"
         ;;
+
     "📸 area screenshot")
         sleep 1
-        grimblast copysave area --notify
+        notify-send "📸 Screenshot" "Select area like it's Minecraft"
+        grimblast copysave area --notify || notify-send "💀 grimblast exploded" "try again ig"
         ;;
+
     "🎥 Record Fullscreen")
         sleep 1
-        notify-send "📹 Recording Started" "Mode: Fullscreen"
-        wf-recorder -f "$OUTPUT" &
+        notify-send "📹 Recording Started" "Fullscreen mode activated, don't do anything sus"
+        wf-recorder -f "$OUTPUT" & disown || notify-send "💀 wf-recorder ragequit"
         ;;
+
     "📹 Record Area")
         sleep 1
-        notify-send "📹 Select Area to Record"
-        wf-recorder -g "$(slurp)" -f "$OUTPUT" &
+        notify-send "📹 Recording" "Pick your poison (select area)"
+        wf-recorder -g "$(slurp)" -f "$OUTPUT" & disown \
+            || notify-send "💀 wf-recorder gave up" "L"
         ;;
+
     "🛑 Stop Recording")
         if pgrep -x wf-recorder >/dev/null; then
             pkill -SIGINT wf-recorder
-            notify-send "🛑 Recording Stopped" "Saved to ~/Videos"
+            notify-send "🛑 Recording Stopped" "Saved to ~/Videos (go check it lazy 💀)"
         else
-            notify-send "⚠️ No Recording Found" "You're chillin 💀"
+            notify-send "⚠️ Bro..." "There's literally nothing recording 💀"
         fi
         ;;
+
     *)
+        echo "ok u canceled, cringe" >/dev/null
         ;;
 esac
-

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# COLORS 😎🔥
+# COLORS 😭🔥 (yes I'm using colors, fight me)
 RED="\e[31m"
 GREEN="\e[32m"
 YELLOW="\e[33m"
@@ -9,51 +9,62 @@ MAGENTA="\e[35m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
-# Script to update using yay(if it exists) and pacman and flatpak(if it exists)
+# 🧠 Welcome to the Update Script™
+# This thing will update your system whether it's ready or not.
+# pray.
+
+echo -e "${CYAN}➡ Checking if pacman is being held hostage...${RESET}"
 
 # check pacman lock
 if [ -f /var/lib/pacman/db.lck ]; then
-    echo -e "${RED}⚠ Warning:${RESET} Another package manager is running."
-    echo -e "${YELLOW}Please close it before proceeding.${RESET}"
-    read -p "$(echo -e "${MAGENTA}Are you sure you want to continue? (y/n): ${RESET}")" choice
+    echo -e "${RED}🚨 BRO WHAT ARE YOU DOING??${RESET}"
+    echo -e "${YELLOW}Pacman is literally locked rn.${RESET}"
+    echo -e "${MAGENTA}Someone (probably you) left it running.${RESET}"
+
+    read -p "$(echo -e "${MAGENTA}Wanna risk it anyway? (y/n): ${RESET}")" choice
 
     if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
-        echo -e "${RED}Exiting...${RESET}"
+        echo -e "${RED}💀 coward. exiting...${RESET}"
         exit 1
     else
-        echo -e "${CYAN}Removing lock file...${RESET}"
+        echo -e "${CYAN}💀 Removing the lock like an absolute menace...${RESET}"
         sudo rm /var/lib/pacman/db.lck
     fi
 fi
 
-echo -e "${GREEN}=> Starting system update...${RESET}"
+echo -e "${GREEN}✅ Starting updates... hold onto your RAM...${RESET}"
 sleep 2
-sudo pacman -Syu --noconfirm
+sudo pacman -Syu --noconfirm || {
+    echo -e "${RED}Pacman said “nah” and dipped 💀${RESET}"
+    exit 1
+}
 
-
-echo -e "${GREEN}=> System update complete!${RESET}"
-echo -e "${CYAN}=> Checking for AUR and Flatpak updates...${RESET}"
+echo -e "${GREEN}✨ pacman is done bullying your system.${RESET}"
+echo -e "${CYAN}➡ Looking for AUR and Flatpak updates like Dora the Explorer...${RESET}"
 sleep 2
 
-echo -e "${MAGENTA}=> Installing AUR and Flatpak updates...${RESET}"
-sleep 2
+echo -e "${MAGENTA}➡ Installing *other* updates because one package manager wasn't enough.${RESET}"
+sleep 1
 
 # yay updates
 if command -v yay &> /dev/null; then
-    echo -e "${YELLOW}=> Updating AUR packages...${RESET}"
-    sleep 2
-    yay -Syu --noconfirm
-    
+    echo -e "${YELLOW}🛠 Updating AUR... (brace yourself)${RESET}"
+    sleep 1
+    yay -Syu --noconfirm || echo -e "${RED}yay exploded LMAO 💀${RESET}"
+else
+    echo -e "${RED}👀 no yay found... skill issue.${RESET}"
 fi
 
 # flatpak updates
 if command -v flatpak &> /dev/null; then
-    echo -e "${BLUE}=> Updating Flatpak packages...${RESET}"
-    sleep 2
-    flatpak update -y
-    
+    echo -e "${BLUE}📦 Updating Flatpak apps (yes, even the ones you forgot exist)...${RESET}"
+    sleep 1
+    flatpak update -y || echo -e "${RED}flatpak update said “no” 💀${RESET}"
+else
+    echo -e "${BLUE}flatpak not found… good, keep it that way 💀${RESET}"
 fi
 
-echo -e "${GREEN}=> All updates complete! 🎉${RESET}"
-sleep 1
+echo -e "${GREEN}🎉 Everything is updated, your system is now 0.003% faster.${RESET}"
+echo -e "${CYAN}✨ You may now go back to wasting RAM on Electron apps.${RESET}"
+
 exit 0

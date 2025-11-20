@@ -12,6 +12,8 @@ ${red}----------------------------${nc}
 
 ${blue}- ${yellow}p10k config${nc} - Configure Powerlevel10k theme
 
+${blue}- ${yellow}services${nc} - manage systemd services
+
 ${blue}- ${yellow}ins <package>${nc} - Install a package using yay+pacman+flatpak
 ${blue}- ${yellow}update${nc} - Update system using yay+pacman+flatpak,
 ${blue}- ${yellow}yay -R <package>${nc} - Remove a package using yay+pacman+flatpak

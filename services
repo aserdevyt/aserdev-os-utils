@@ -1,0 +1,133 @@
+#!/bin/bash
+
+# --- Configuration ---
+# the shit we finna bully today
+SERVICE_MANAGER="systemctl"
+
+# --- Pre-flight stupidity check ---
+if ! command -v $SERVICE_MANAGER &>/dev/null; then
+    echo "Bro... how do you not even have systemd 💀"
+    echo "This script literally can't do anything without it."
+    exit 1
+fi
+
+# --- Function to check if user is dumb enough to not be root ---
+if [ "$(id -u)" -ne 0 ]; then
+    echo "You need root, lil bro. Rerunning with sudo…"
+    exec sudo "$0" "$@"
+    echo "Sudo said no. Skill issue."
+    exit 1
+fi
+
+# --- Functions ---
+
+start_service() {
+    local svc
+    svc=$(dialog --inputbox "Enter service name to start:" 8 40 2>&1 >/dev/tty)
+
+    if [ -z "$svc" ]; then
+        dialog --msgbox "Nah nevermind then." 5 30
+        return
+    fi
+
+    $SERVICE_MANAGER start "$svc" 2>/tmp/service.err
+    if [ $? -eq 0 ]; then
+        dialog --msgbox "'$svc' has been cooked and started successfully." 6 40
+    else
+        dialog --msgbox "Bro that FAILED 💀\n$(cat /tmp/service.err)" 12 60
+    fi
+}
+
+stop_service() {
+    local svc
+    svc=$(dialog --inputbox "Enter service name to stop:" 8 40 2>&1 >/dev/tty)
+
+    if [ -z "$svc" ]; then
+        dialog --msgbox "You cancelled. Lame." 5 30
+        return
+    fi
+
+    $SERVICE_MANAGER stop "$svc" 2>/tmp/service.err
+    if [ $? -eq 0 ]; then
+        dialog --msgbox "'$svc' has been STOPPED. RIP bozo." 6 40
+    else
+        dialog --msgbox "Could NOT stop '$svc'.\nError skill issues: $(cat /tmp/service.err)" 12 60
+    fi
+}
+
+restart_service() {
+    local svc
+    svc=$(dialog --inputbox "Which service are we restarting?" 8 40 2>&1 >/dev/tty)
+
+    if [ -z "$svc" ]; then
+        dialog --msgbox "Restart cancelled. Weak." 5 30
+        return
+    fi
+
+    $SERVICE_MANAGER restart "$svc" 2>/tmp/service.err
+    if [ $? -eq 0 ]; then
+        dialog --msgbox "'$svc' got the good ol' reboot slap." 6 40
+    else
+        dialog --msgbox "Bro I tried, but this restarted NOTHING 💀\n$(cat /tmp/service.err)" 12 60
+    fi
+}
+
+enable_service() {
+    local svc
+    svc=$(dialog --inputbox "Enter service name to enable:" 8 40 2>&1 >/dev/tty)
+
+    if [ -z "$svc" ]; then
+        dialog --msgbox "Cancelled. Lazy mf." 5 30
+        return
+    fi
+
+    $SERVICE_MANAGER enable "$svc" 2>/tmp/service.err
+    if [ $? -eq 0 ]; then
+        dialog --msgbox "'$svc' will now autostart like a Discord addict." 6 50
+    else
+        dialog --msgbox "FAILED to enable '$svc'.\nIdk what you broke: $(cat /tmp/service.err)" 12 60
+    fi
+}
+
+disable_service() {
+    local svc
+    svc=$(dialog --inputbox "Enter service name to disable:" 8 40 2>&1 >/dev/tty)
+
+    if [ -z "$svc" ]; then
+        dialog --msgbox "Cancelled. Boring." 5 30
+        return
+    fi
+
+    $SERVICE_MANAGER disable "$svc" 2>/tmp/service.err
+    if [ $? -eq 0 ]; then
+        dialog --msgbox "'$svc' has been disabled. It's unemployed now 💀" 7 50
+    else
+        dialog --msgbox "Bro that FAILED.\nL error: $(cat /tmp/service.err)" 12 60
+    fi
+}
+
+# --- Main Menu That You Will Abuse ---
+
+while true; do
+    CHOICE=$(dialog --clear --backtitle "Chaotic SystemD Manager" \
+        --title "Main Menu" \
+        --menu "Pick your poison:" 18 60 8 \
+        1 "Start Service" \
+        2 "Stop Service" \
+        3 "Restart Service" \
+        4 "Enable Service" \
+        5 "Disable Service" \
+        6 "Exit (skill issue)" \
+        2>&1 >/dev/tty)
+
+    [ $? -ne 0 ] && clear && echo "Exiting." && exit 0
+
+    case $CHOICE in
+        1) start_service ;;
+        2) stop_service ;;
+        3) restart_service ;;
+        4) enable_service ;;
+        5) disable_service ;;
+        6) clear; echo "bye loser"; exit 0 ;;
+    esac
+done

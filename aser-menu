@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# 🧠 aserdev's Rofi Control Center — Simplified with Screenrec Integration
-# Minimal deps: rofi, notify-send, wl-clipboard, a terminal (kitty preferred)
+# 🧠 aserdev's cursed Rofi Control Center 💀
+# deps: rofi, wl-clipboard, notify-send, kitty (optional), braincells (optional)
+
 set -euo pipefail
 IFS=$'\n\t'
 
@@ -8,40 +9,46 @@ TERMINAL="${TERMINAL:-kitty}"
 EDITOR="${EDITOR:-nano}"
 ROFI_CMD="${ROFI_CMD:-rofi -dmenu -i -p}"
 
+# 💬 Discord launcher
 run_discord() {
   if command -v discord &>/dev/null; then
+    echo "💬 launching discord… hope ur friends are online"
     discord &
   else
     ask_install discord && discord &
   fi
 }
 
+# ✅ Yes/No menu with attitude
 rofi_yn() {
   local prompt="${1:-Proceed?}"
   local ans
-  ans=$(printf 'Yes\nNo' | rofi -dmenu -p "$prompt")
+  ans=$(printf 'Yes\nNo' | rofi -dmenu -p "$prompt (pls don't break anything)")
   [[ "$ans" == "Yes" ]]
 }
 
+# 🔧 install helper, passive-aggressive edition
 ask_install() {
-  # Usage: ask_install <package_name> [binary_name]
   local pkg="$1"
   local bin="${2:-$1}"
   if ! command -v "$bin" &>/dev/null; then
     if rofi_yn "Install $pkg?"; then
       if command -v ins &>/dev/null; then
+        echo "📦 installing $pkg… fingers crossed 💀"
         ins "$pkg"
       else
-        rofi -e "No install command found. Please install $pkg manually."
+        rofi -e "No install command found. Fix ur life, install $pkg manually."
         return 1
       fi
     else
+      echo "🙄 skipped installing $pkg… brave choice"
       return 1
     fi
   fi
   return 0
 }
 
+# 📁 Open files/folders, with fallback chaos
 open_in_thunar() {
   local path="${1:-$HOME}"
   if ! command -v thunar &>/dev/null; then
@@ -56,104 +63,78 @@ open_file_gui_or_terminal() {
   if command -v pluma &>/dev/null; then
     pluma "$file" &
   else
-    # MODIFIED: Switched back to 'bash -c'
-    $TERMINAL -e bash -c "$EDITOR '$file'; read -p 'Press enter to exit...'"
+    $TERMINAL -e bash -c "$EDITOR '$file'; read -p 'Press enter to escape this madness…'"
   fi
 }
 
-
-
+# 📦 Install Menu, chaotic edition
 install_menu() {
-local MENU=$(printf "📦 update-os\n📦install-package\n⬅️ Back" | rofi -dmenu -p "Install Packages:")
-case "$MENU" in
+  local MENU=$(printf "📦 update-os\n📦install-package\n⬅️ Back" | rofi -dmenu -p "Install Packages:")
+  case "$MENU" in
     "📦 update-os")
+      echo "⚡ updating the os… may break something, pray 💀"
       if command -v install &>/dev/null; then
-          $TERMINAL -e bash -c "update; read -p 'Press enter to exit...'"
+        $TERMINAL -e bash -c "update; read -p 'Press enter to survive…'"
       else
-          ask_install aserdev-os-utils install && $TERMINAL -e bash -c "update; read -p 'Press enter to exit...'"
+        ask_install aserdev-os-utils install && $TERMINAL -e bash -c "update; read -p 'Press enter…'"
       fi
-        ;;
+      ;;
     "📦install-package")
-        local pkg_name
-        pkg_name=$(rofi -dmenu -p "Enter package name to install:")
-        if [[ -n "$pkg_name" ]]; then
-            $TERMINAL -e bash -c "ins '$pkg_name'; read -p 'Press enter to exit...'"
-        fi
-        ;;
-    "⬅️ Back")
-        main_menu
-        ;;
-    *)
-        ;;
-esac
+      local pkg_name
+      pkg_name=$(rofi -dmenu -p "Enter package name to throw into system:")
+      [[ -n "$pkg_name" ]] && $TERMINAL -e bash -c "ins '$pkg_name'; read -p 'Press enter…'"
+      ;;
+    "⬅️ Back") main_menu ;;
+  esac
 }
 
+# 📋 Clipboard menu, passive-aggressive edition
 clipboard_menu() {
   local options=("📋  Open Clipboard" "🧹  Clear Clipboard" "⬅️  Back")
-  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Clipboard")
+  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Clipboard (don't f*** it up)")
   case "$choice" in
     "📋  Open Clipboard") ask_install aserdev-os-utils rofi-cliphist && rofi-cliphist ;;
-    "🧹  Clear Clipboard") ask_install aserdev-os-utils cliphist && cliphist wipe && notify-send "Clipboard" "Cleared" || rofi -e "No cliphist" ;;
+    "🧹  Clear Clipboard") ask_install aserdev-os-utils cliphist && cliphist wipe && notify-send "Clipboard" "Cleared 💀" || rofi -e "No cliphist, rip" ;;
     "⬅️  Back") main_menu ;;
   esac
 }
 
+# 🧠 System info menu
 sysinfo_menu() {
   local options=("🧠  Brokefetch" "⚡  Fastfetch" "📊  Btop" "⬅️  Back")
-  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "System Info")
+  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "System Info (stare at ur stats)")
   case "$choice" in
-    # MODIFIED: Switched back to bash -c
     "🧠  Brokefetch")
-        command -v brokefetch &>/dev/null && $TERMINAL -e bash -c "brokefetch; read -p 'Press enter to exit...'" || ask_install brokefetch ;;
-    # MODIFIED: Switched back to bash -c
-    "⚡  Fastfetch")
-        ask_install fastfetch && $TERMINAL -e bash -c "fastfetch; read -p 'Press enter to exit...'" ;;
-    "📊  Btop")
-        # btop is interactive, so it should exit cleanly after the user quits it. No need for a read-p.
-        ask_install btop && $TERMINAL -e btop ;;
+      command -v brokefetch &>/dev/null && $TERMINAL -e bash -c "brokefetch; read -p 'Press enter to exit…'" || ask_install brokefetch ;;
+    "⚡  Fastfetch") ask_install fastfetch && $TERMINAL -e bash -c "fastfetch; read -p 'Press enter…'" ;;
+    "📊  Btop") ask_install btop && $TERMINAL -e btop ;;
     "⬅️  Back") main_menu ;;
   esac
 }
 
+# ❌ Kill window, brutal edition
 kill_window() {
-  # Use hyprctl to kill the active window for Wayland/Hyprland
   if command -v hyprctl &>/dev/null; then
+    echo "💀 killing active window…"
     hyprctl dispatch killactive ""
-  # Fallback to xkill for general X11 environments
   elif command -v xkill &>/dev/null; then
     xkill
-    notify-send "Kill Window" "Click the window you want to close."
+    notify-send "Kill Window" "Click the window you wanna destroy 💀"
   else
-    rofi -e "No window kill tool (hyprctl or xkill) found."
+    rofi -e "No window kill tool found. Ur on ur own."
   fi
 }
 
+# 🌐 Web search menu
 web_search() {
   local HIST_FILE="$HOME/.cache/web_search_history"
-  local ENGINES=(
-    "Google|https://www.google.com/search?q="
-    "Bing|https://www.bing.com/search?q="
-    "DuckDuckGo|https://duckduckgo.com/?q="
-    "Wikipedia|https://en.wikipedia.org/wiki/Special:Search?search="
-    "ArchWiki|https://wiki.archlinux.org/index.php?search="
-  )
-
-  # 🧠 FIX: Using the jq-based urlencode which is robust, and checking for jq availability.
-  if ! command -v jq &>/dev/null; then
-    if ! ask_install jq; then
-        rofi -e "jq is required for robust URL encoding. Please install it."
-        return 1
-    fi
-  fi
+  local ENGINES=("Google|https://www.google.com/search?q=" "DuckDuckGo|https://duckduckgo.com/?q=" "ArchWiki|https://wiki.archlinux.org/index.php?search=")
+  command -v jq &>/dev/null || ask_install jq || { rofi -e "jq required for URL encoding 💀"; return 1; }
   
-  # Robust URL encoding function using jq
-  urlencode() {
-    jq -rn --arg v "$1" '$v|@uri'
-  }
+  urlencode() { jq -rn --arg v "$1" '$v|@uri'; }
 
-  # pick engine 🧠
   local engine_choice engine_name engine_url
-  engine_choice=$(printf "%s\n" "${ENGINES[@]%%|*}" | rofi -dmenu -p "🌐 Choose engine:")
+  engine_choice=$(printf "%s\n" "${ENGINES[@]%%|*}" | rofi -dmenu -p "🌐 Pick engine (don't die):")
   [[ -z "$engine_choice" ]] && return
 
   for e in "${ENGINES[@]}"; do
@@ -162,47 +143,28 @@ web_search() {
     [[ "$engine_name" == "$engine_choice" ]] && break
   done
 
-  # search query (with history 🧠)
   mkdir -p "$(dirname "$HIST_FILE")"
   touch "$HIST_FILE"
   local query
-  query=$(tac "$HIST_FILE" | rofi -dmenu -p "🔎 Search:" -mesg "Engine: $engine_name (Enter to search, Esc to cancel)")
+  query=$(tac "$HIST_FILE" | rofi -dmenu -p "🔎 Search:" -mesg "Engine: $engine_name")
   [[ -z "$query" ]] && return
-
-  # save to history (no dupes)
   grep -Fxq "$query" "$HIST_FILE" || echo "$query" >> "$HIST_FILE"
 
-  # encode + open 🌍
   local encoded_query
   encoded_query=$(urlencode "$query")
+  echo "🌍 opening $engine_name for: $query"
   xdg-open "${engine_url}${encoded_query}" &>/dev/null &
 }
 
-
-
+# 🔔 Notifications toggle
 swaync_client() {
-  # Sway Notification Center client to toggle the notification list
-  # Package name is typically 'swaync' but the binary is 'swaync-client'
   ask_install swaync swaync-client && swaync-client -t
 }
 
+# 🖕 Main cursed menu
 main_menu() {
-  local options=(
-    "⚙️  Settings"
-    "🚀  Run Command"
-    "🌐  Web Search"
-    "🔔  Notifications"
-    "📦  Install"
-    "📋  Clipboard"
-    "😀  Emoji Picker"
-    "📸  Screen capture"
-    "❌  Kill Window"
-    "💬  discord"
-    "🧠  System Info"
-    "🔋  Power"
-    "ℹ️  About"
-  )
-  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Aser Control Center")
+  local options=("⚙️  Settings" "🚀  Run Command" "🌐  Web Search" "🔔  Notifications" "📦  Install" "📋  Clipboard" "😀  Emoji Picker" "📸  Screen capture" "❌  Kill Window" "💬  discord" "🧠  System Info" "🔋  Power" "ℹ️  About")
+  local choice=$(printf '%s\n' "${options[@]}" | rofi -dmenu -i -p "Aser Control Center (chaos edition)")
   case "$choice" in
     "⚙️  Settings") aser-settings ;;
     "🚀  Run Command") rofi -show run ;;
@@ -213,11 +175,11 @@ main_menu() {
     "😀  Emoji Picker") rofi -show emoji ;;
     "📸  Screen capture") ask_install aserdev-os-utils screenrec && screenrec ;;
     "❌  Kill Window") kill_window ;;
-    "💬  discord") discord ;;
+    "💬  discord") run_discord ;;
     "🧠  System Info") sysinfo_menu ;;
-    "🔋  Power") aser-power;;
+    "🔋  Power") aser-power ;;
     "ℹ️  About") xdg-open "https://github.com/aserdevyt/aserdev-os/" ;;
-    *) exit 0 ;;
+    *) echo "🙄 canceled or invalid… exiting"; exit 0 ;;
   esac
 }
 

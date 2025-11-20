@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# 📦 aserdev's "pls install my package" script 💀
+# this thing will try yay → pacman → flatpak → cry
 
-# COLORS
+# COLORS (bc aesthetic matters more than sanity)
 RED="\e[31m"
 GREEN="\e[32m"
 YELLOW="\e[33m"
@@ -10,62 +12,67 @@ RESET="\e[0m"
 
 PKG="$1"
 
+# if the mf didn't type a package
 if [ -z "$PKG" ]; then
+    echo -e "${RED}bro what package do you want me to install 💀${RESET}"
     echo "usage: install <package>"
     exit 1
 fi
 
-# 🔒 check pacman lock
+# PACMAN LOCK CHECK (arch users’ final boss)
 if [ -f /var/lib/pacman/db.lck ]; then
-    echo -e "${RED}⚠ Warning:${RESET} Another package manager is running."
-    echo -e "${YELLOW}Please close it before proceeding.${RESET}"
-    read -p "$(echo -e "${MAGENTA}Are you sure you want to continue? (y/n): ${RESET}")" choice
+    echo -e "${RED}⚠ ayo chill:${RESET} pacman is literally locked rn"
+    echo -e "${YELLOW}some other package manager is probably cooking${RESET}"
+    read -p "$(echo -e "${MAGENTA}Force unlock? (y/n): ${RESET}")" choice
 
     if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
-        echo -e "${RED}Exiting...${RESET}"
+        echo -e "${RED}fine leave then 🙄${RESET}"
         exit 1
     else
-        echo -e "${CYAN}Removing lock file...${RESET}"
+        echo -e "${CYAN}🔓 deleting the lock like a sigma hacker...${RESET}"
         sudo rm /var/lib/pacman/db.lck
     fi
 fi
 
-echo -e "${CYAN}📦 Trying to install: ${MAGENTA}$PKG${RESET}"
-# 1️⃣ yay first
-if command -v yay &>/dev/null; then
-    echo -e "${YELLOW}=> Trying yay…${RESET}"
+echo -e "${CYAN}📦 Attempting to install ${MAGENTA}$PKG${RESET}"
+sleep 1
 
-    # check if yay can find the package before installing
+# 1️⃣ yay (AUR gigachad)
+if command -v yay &>/dev/null; then
+    echo -e "${YELLOW}➡ checking yay (the aur wizard)…${RESET}"
     if yay -Si "$PKG" &>/dev/null || yay -Sia "$PKG" &>/dev/null; then
         if yay -Sy --noconfirm "$PKG"; then
-            echo -e "${GREEN}✅ Installed with yay!${RESET}"
+            echo -e "${GREEN}✅ yay W pipeline complete${RESET}"
             exit 0
+        else
+            echo -e "${RED}❌ yay fumbled the bag${RESET}"
         fi
     else
-        echo -e "${RED}❌ yay: package not found${RESET}"
+        echo -e "${RED}❌ yay said 'idk that pkg bro'${RESET}"
     fi
 fi
 
-
-# 2️⃣ pacman
-echo -e "${YELLOW}=> Trying pacman…${RESET}"
+# 2️⃣ pacman (the old reliable grandpa)
+echo -e "${YELLOW}➡ switching to pacman…${RESET}"
 if sudo pacman -Sy --noconfirm "$PKG"; then
-    echo -e "${GREEN}✅ Installed with pacman!${RESET}"
+    echo -e "${GREEN}💚 pacman clutched that for you${RESET}"
     exit 0
 else
-    echo -e "${RED}❌ pacman failed…${RESET}"
+    echo -e "${RED}❌ pacman tripped on the stairs${RESET}"
 fi
 
-# 3️⃣ flatpak
+# 3️⃣ flatpak (the bloated fallback)
 if command -v flatpak &>/dev/null; then
-    echo -e "${YELLOW}=> Trying flatpak…${RESET}"
+    echo -e "${YELLOW}➡ checking flatpak (aka 'the discount appstore')…${RESET}"
     if flatpak install -y "$PKG"; then
-        echo -e "${GREEN}✅ Installed with flatpak!${RESET}"
+        echo -e "${GREEN}🟢 flatpak somehow worked LMAO${RESET}"
         exit 0
     else
-        echo -e "${RED}❌ flatpak also cooked 💀${RESET}"
+        echo -e "${RED}❌ flatpak cooked itself💀${RESET}"
     fi
 fi
 
-echo -e "${RED}💀 bro… I tried EVERYTHING. That package does NOT exist.${RESET}"
+# 🚨 nothing worked
+echo -e "${RED}💀 bro I tried yay, pacman AND flatpak..."
+echo -e "and this mf still doesn't exist 😭${RESET}"
 exit 1
