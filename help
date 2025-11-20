@@ -26,7 +26,7 @@ ${blue}- ${yellow}cp <source> <destination>${nc} - Copy files or directories
 ${blue}- ${yellow}touch <file>${nc} - Create an empty file
 ${blue}- ${yellow}cat <file>${nc} - Display file contents
 ${blue}- ${yellow}vim <file>${nc} - Edit file with vim editor
-${blue}- ${yellow}sudo command${nc} - force run command as superuser
+${blue}- ${yellow}sudo <command>${nc} - force run command as superuser
 ${blue}- ${yellow}reboot${nc} - Reboot the system
 ${blue}- ${yellow}shutdown${nc} - Shutdown the system
 ${red}----------------------------${nc}
