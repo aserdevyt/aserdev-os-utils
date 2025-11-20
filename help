@@ -1,0 +1,33 @@
+#!/bin/bash
+
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+blue='\033[0;34m'
+nc='\033[0m' # No Color
+echo -e "
+${red}----------------------------${nc}
+${green}aserdev-os's zsh help      ${red}|${nc}
+${red}----------------------------${nc}
+
+${blue}- ${yellow}p10k config${nc} - Configure Powerlevel10k theme
+
+${blue}- ${yellow}ins <package>${nc} - Install a package using yay+pacman+flatpak
+${blue}- ${yellow}update${nc} - Update system using yay+pacman+flatpak,
+${blue}- ${yellow}yay -R <package>${nc} - Remove a package using yay+pacman+flatpak
+
+${blue}- ${yellow}ls ${nc} - List files in current directory
+${blue}- ${yellow}cd <directory>${nc} - Change directory
+${blue}- ${yellow}pwd${nc} - Print working directory
+${blue}- ${yellow}mkdir <directory>${nc} - Create a new directory
+${blue}- ${yellow}rm <file>${nc} - Remove a file
+${blue}- ${yellow}mv <source> <destination>${nc} - Move or rename
+${blue}- ${yellow}cp <source> <destination>${nc} - Copy files or directories
+${blue}- ${yellow}touch <file>${nc} - Create an empty file
+${blue}- ${yellow}cat <file>${nc} - Display file contents
+${blue}- ${yellow}vim <file>${nc} - Edit file with vim editor
+${blue}- ${yellow}sudo command${nc} - force run command as superuser
+${blue}- ${yellow}reboot${nc} - Reboot the system
+${blue}- ${yellow}shutdown${nc} - Shutdown the system
+${red}----------------------------${nc}
+"
