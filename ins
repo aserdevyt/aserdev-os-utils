@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Ensure running under bash (re-exec if invoked with sh/dash)
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec /usr/bin/env bash "$0" "$@"
+fi
 # 📦 aserdev's "pls install my package" script 💀
 # this thing will try yay → pacman → flatpak → cry
 
@@ -10,69 +14,226 @@ MAGENTA="\e[35m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
-PKG="$1"
+# detect UTF-8 / Unicode support and fall back to ASCII when missing
+if locale charmap 2>/dev/null | grep -qi utf-8; then
+    ICON_INFO='ℹ'
+    ICON_STEP='➜'
+    ICON_SUCCESS='✔'
+    ICON_FAIL='✖'
+else
+    ICON_INFO='i'
+    ICON_STEP='->'
+    ICON_SUCCESS='OK'
+    ICON_FAIL='!!'
+fi
+
+# banner using figlet when available; fallback to simple separators
+banner() {
+    local title="$1"
+    printf "%b\n" "${MAGENTA}========================================${RESET}"
+    printf "%b\n" "${CYAN}${title}${RESET}"
+    printf "%b\n" "${MAGENTA}========================================${RESET}"
+}
+
+info() { printf "%b\n" "${CYAN}${ICON_INFO} ${RESET}$*"; }
+step() { printf "%b\n" "${YELLOW}${ICON_STEP} ${RESET}$*"; }
+success() { printf "%b\n" "${GREEN}${ICON_SUCCESS} ${RESET}$*"; }
+fail() { printf "%b\n" "${RED}${ICON_FAIL} ${RESET}$*"; }
+
+# check that a command exists and can be executed (not just present on PATH)
+command_works() {
+    local cmd="$1"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        return 1
+    fi
+    # try to run a harmless --version to ensure linked libs are present
+    if "$cmd" --version >/dev/null 2>&1; then
+        return 0
+    else
+        fail "$cmd exists but failed to run (skipping)"
+        return 1
+    fi
+}
+
+MODE=""
+PACKAGES=()
+
+usage() {
+    banner "ins — installer"
+    info "Usage: ins [flags] <pkg1> [pkg2 ...]"
+    echo
+    echo "Flags:"
+    echo "  -S     Use plain -S (no -Sy)."
+    echo "  -Sy    Use -Sy (refresh DB before install)."
+    echo "  -Syu   Use -Syu (upgrade + install)."
+    echo
+    echo "Examples:"
+    echo "  ins firefox"
+    echo "  ins -S firefox"
+    echo "  ins -Sy pkg1 pkg2"
+    exit 1
+}
+
+# parse args
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -S)
+            MODE="S"
+            shift
+            ;;
+        -Sy)
+            MODE="Sy"
+            shift
+            ;;
+        -Syu)
+            MODE="Syu"
+            shift
+            ;;
+        -h|--help)
+            usage
+            ;;
+        -*)
+            echo -e "${RED}Unknown flag: $1${RESET}"
+            usage
+            ;;
+        *)
+            PACKAGES+=("$1")
+            shift
+            ;;
+    esac
+done
 
 # if the mf didn't type a package
-if [ -z "$PKG" ]; then
+if [ ${#PACKAGES[@]} -eq 0 ]; then
     echo -e "${RED}bro what package do you want me to install 💀${RESET}"
-    echo "usage: install <package>"
-    exit 1
+    usage
 fi
 
 # PACMAN LOCK CHECK (arch users’ final boss)
 if [ -f /var/lib/pacman/db.lck ]; then
-    echo -e "${RED}⚠ ayo chill:${RESET} pacman is literally locked rn"
-    echo -e "${YELLOW}some other package manager is probably cooking${RESET}"
+    fail "⚠ ayo chill: pacman is literally locked rn"
+    info "some other package manager is probably cooking"
     read -p "$(echo -e "${MAGENTA}Force unlock? (y/n): ${RESET}")" choice
 
     if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
         echo -e "${RED}fine leave then 🙄${RESET}"
         exit 1
     else
-        echo -e "${CYAN}🔓 deleting the lock like a sigma hacker...${RESET}"
+        step "🔓 deleting the lock like a sigma hacker..."
         sudo rm /var/lib/pacman/db.lck
     fi
 fi
 
-echo -e "${CYAN}📦 Attempting to install ${MAGENTA}$PKG${RESET}"
-sleep 1
+banner "Attempting to install: ${PACKAGES[*]}"
 
-# 1️⃣ yay (AUR gigachad)
-if command -v yay &>/dev/null; then
-    echo -e "${YELLOW}➡ checking yay (the aur wizard)…${RESET}"
-    if yay -Si "$PKG" &>/dev/null || yay -Sia "$PKG" &>/dev/null; then
-        if yay -Sy --noconfirm "$PKG"; then
-            echo -e "${GREEN}✅ yay W pipeline complete${RESET}"
-            exit 0
-        else
-            echo -e "${RED}❌ yay fumbled the bag${RESET}"
-        fi
+# If user requested -Syu, run flatpak update/upgrade once before installs
+if [ "$MODE" = "Syu" ] && command -v flatpak &>/dev/null; then
+    step "running flatpak update/upgrade…"
+    if flatpak update -y; then
+        success "flatpak updated successfully"
     else
-        echo -e "${RED}❌ yay said 'idk that pkg bro'${RESET}"
+        fail "flatpak update failed (continuing)"
     fi
 fi
 
-# 2️⃣ pacman (the old reliable grandpa)
-echo -e "${YELLOW}➡ switching to pacman…${RESET}"
-if sudo pacman -Sy --noconfirm "$PKG"; then
-    echo -e "${GREEN}💚 pacman clutched that for you${RESET}"
+# helper to choose flags
+build_flags() {
+    local mode="$1"
+    case "$mode" in
+        S)
+            echo "-S --noconfirm"
+            ;;
+        Sy)
+            echo "-Sy --noconfirm"
+            ;;
+        Syu)
+            echo "-Syu --noconfirm"
+            ;;
+        *)
+            # default behavior kept as before
+            echo "-Sy --noconfirm"
+            ;;
+    esac
+}
+
+ALL_OK=0
+FAILED=()
+
+for PKG in "${PACKAGES[@]}"; do
+    banner "Installing: ${PKG}"
+    sleep 1
+
+    PKG_OK=1
+
+    # 1️⃣ try AUR helpers: yay then paru
+    if command -v yay &>/dev/null; then
+        step "checking yay (the aur wizard)…"
+        if yay -Si "$PKG" &>/dev/null || yay -Sia "$PKG" &>/dev/null; then
+            YAY_FLAGS=$(build_flags "$MODE")
+            if yay $YAY_FLAGS "$PKG"; then
+                success "yay installed $PKG"
+                PKG_OK=0
+            else
+                fail "yay fumbled the bag for $PKG"
+            fi
+        else
+            fail "yay said 'idk that pkg bro' for $PKG"
+        fi
+    fi
+
+    # try paru if yay didn't succeed or isn't present
+    if [ $PKG_OK -ne 0 ] && command -v paru &>/dev/null; then
+        step "checking paru (AUR helper fallback)…"
+        if paru -Si "$PKG" &>/dev/null || paru -Sia "$PKG" &>/dev/null; then
+            PARU_FLAGS=$(build_flags "$MODE")
+            if paru $PARU_FLAGS "$PKG"; then
+                success "paru installed $PKG"
+                PKG_OK=0
+            else
+                fail "paru fumbled the bag for $PKG"
+            fi
+        else
+            fail "paru said 'idk that pkg bro' for $PKG"
+        fi
+    fi
+
+    # 2️⃣ pacman
+    if [ $PKG_OK -ne 0 ]; then
+        step "switching to pacman…"
+        PAC_FLAGS=$(build_flags "$MODE")
+        if sudo pacman $PAC_FLAGS "$PKG"; then
+            success "pacman clutched that for $PKG"
+            PKG_OK=0
+        else
+            fail "pacman tripped on $PKG"
+        fi
+    fi
+
+    # 3️⃣ flatpak
+    if [ $PKG_OK -ne 0 ] && command -v flatpak &>/dev/null; then
+        step "checking flatpak (aka 'the discount appstore')…"
+        if flatpak install -y "$PKG"; then
+            success "flatpak installed $PKG"
+            PKG_OK=0
+        else
+            fail "flatpak failed for $PKG"
+        fi
+    fi
+
+    if [ $PKG_OK -eq 0 ]; then
+        success "done: $PKG"
+        ALL_OK=$((ALL_OK + 1))
+    else
+        fail "all installers failed for $PKG"
+        FAILED+=("$PKG")
+    fi
+    echo
+done
+
+if [ ${#FAILED[@]} -eq 0 ]; then
+    success "All requested packages installed successfully (${ALL_OK})."
     exit 0
 else
-    echo -e "${RED}❌ pacman tripped on the stairs${RESET}"
+    fail "Failed to install: ${FAILED[*]}"
+    exit 1
 fi
-
-# 3️⃣ flatpak (the bloated fallback)
-if command -v flatpak &>/dev/null; then
-    echo -e "${YELLOW}➡ checking flatpak (aka 'the discount appstore')…${RESET}"
-    if flatpak install -y "$PKG"; then
-        echo -e "${GREEN}🟢 flatpak somehow worked LMAO${RESET}"
-        exit 0
-    else
-        echo -e "${RED}❌ flatpak cooked itself💀${RESET}"
-    fi
-fi
-
-# 🚨 nothing worked
-echo -e "${RED}💀 bro I tried yay, pacman AND flatpak..."
-echo -e "and this mf still doesn't exist 😭${RESET}"
-exit 1

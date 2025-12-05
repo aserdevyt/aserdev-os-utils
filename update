@@ -9,62 +9,119 @@ MAGENTA="\e[35m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
+# detect UTF-8 / Unicode support and fall back to ASCII when missing
+if locale charmap 2>/dev/null | grep -qi utf-8; then
+    ICON_INFO='ℹ'
+    ICON_STEP='➜'
+    ICON_SUCCESS='✔'
+    ICON_FAIL='✖'
+else
+    ICON_INFO='i'
+    ICON_STEP='->'
+    ICON_SUCCESS='OK'
+    ICON_FAIL='!!'
+fi
+
+# simple banner and helper printers (match `ins` style)
+banner() {
+    local title="$1"
+    printf "%b\n" "${MAGENTA}========================================${RESET}"
+    printf "%b\n" "${CYAN}${title}${RESET}"
+    printf "%b\n" "${MAGENTA}========================================${RESET}"
+}
+
+info() { printf "%b\n" "${CYAN}${ICON_INFO} ${RESET}$*"; }
+step() { printf "%b\n" "${YELLOW}${ICON_STEP} ${RESET}$*"; }
+success() { printf "%b\n" "${GREEN}${ICON_SUCCESS} ${RESET}$*"; }
+fail() { printf "%b\n" "${RED}${ICON_FAIL} ${RESET}$*"; }
+
+# check that a command exists and can be executed (not just present on PATH)
+command_works() {
+    local cmd="$1"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        return 1
+    fi
+    if "$cmd" --version >/dev/null 2>&1; then
+        return 0
+    else
+        fail "$cmd exists but failed to run (skipping)"
+        return 1
+    fi
+}
+
 # 🧠 Welcome to the Update Script™
 # This thing will update your system whether it's ready or not.
 # pray.
 
-echo -e "${CYAN}➡ Checking if pacman is being held hostage...${RESET}"
+banner "Update Script"
+
+step "Checking if pacman is being held hostage..."
 
 # check pacman lock
 if [ -f /var/lib/pacman/db.lck ]; then
-    echo -e "${RED}🚨 BRO WHAT ARE YOU DOING??${RESET}"
-    echo -e "${YELLOW}Pacman is literally locked rn.${RESET}"
-    echo -e "${MAGENTA}Someone (probably you) left it running.${RESET}"
+    fail "BRO WHAT ARE YOU DOING??"
+    info "Pacman is literally locked rn."
+    info "Someone (probably you) left it running."
 
     read -p "$(echo -e "${MAGENTA}Wanna risk it anyway? (y/n): ${RESET}")" choice
 
     if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
-        echo -e "${RED}💀 coward. exiting...${RESET}"
+        fail "coward. exiting..."
         exit 1
     else
-        echo -e "${CYAN}💀 Removing the lock like an absolute menace...${RESET}"
+        step "Removing the lock like an absolute menace..."
         sudo rm /var/lib/pacman/db.lck
     fi
 fi
 
-echo -e "${GREEN}✅ Starting updates... hold onto your RAM...${RESET}"
+step "Starting updates... hold onto your RAM..."
 sleep 2
-sudo pacman -Syu --noconfirm || {
-    echo -e "${RED}Pacman said “nah” and dipped 💀${RESET}"
+if ! sudo pacman -Syu --noconfirm; then
+    fail "Pacman said 'nah' and dipped"
     exit 1
-}
+fi
 
-echo -e "${GREEN}✨ pacman is done bullying your system.${RESET}"
-echo -e "${CYAN}➡ Looking for AUR and Flatpak updates like Dora the Explorer...${RESET}"
+success "pacman is done bullying your system."
+info "Looking for AUR and Flatpak updates like Dora the Explorer..."
 sleep 2
 
-echo -e "${MAGENTA}➡ Installing *other* updates because one package manager wasn't enough.${RESET}"
+step "Installing other updates (AUR / Flatpak)"
 sleep 1
 
-# yay updates
-if command -v yay &> /dev/null; then
-    echo -e "${YELLOW}🛠 Updating AUR... (brace yourself)${RESET}"
+# AUR updates: try yay, then paru fallback
+if command -v yay >/dev/null 2>&1; then
+    step "Updating AUR with yay..."
     sleep 1
-    yay -Syu --noconfirm || echo -e "${RED}yay exploded LMAO 💀${RESET}"
+    if ! yay -Syu --noconfirm; then
+        fail "yay exploded — attempting paru fallback..."
+        if command -v paru >/dev/null 2>&1; then
+            step "Updating AUR with paru..."
+            paru -Syu --noconfirm || fail "paru exploded as well"
+        else
+            fail "paru not found — AUR updates skipped"
+        fi
+    fi
+elif command -v paru >/dev/null 2>&1; then
+    step "yay not found; updating AUR with paru..."
+    paru -Syu --noconfirm || fail "paru exploded"
 else
-    echo -e "${RED}👀 no yay found... skill issue.${RESET}"
+    fail "no yay or paru found — skipping AUR updates"
 fi
 
 # flatpak updates
 if command -v flatpak &> /dev/null; then
-    echo -e "${BLUE}📦 Updating Flatpak apps (yes, even the ones you forgot exist)...${RESET}"
+    step "Updating Flatpak apps (yes, even the ones you forgot exist)..."
     sleep 1
-    flatpak update -y || echo -e "${RED}flatpak update said “no” 💀${RESET}"
+    if flatpak update -y; then
+        success "flatpak updates applied"
+    else
+        fail "flatpak update failed"
+    fi
 else
-    echo -e "${BLUE}flatpak not found… good, keep it that way 💀${RESET}"
+    info "flatpak not found — skipping"
 fi
 
-echo -e "${GREEN}🎉 Everything is updated, your system is now 0.003% faster.${RESET}"
-echo -e "${CYAN}✨ You may now go back to wasting RAM on Electron apps.${RESET}"
+success "Everything is updated, your system is now 0.003% faster."
+info "You may now go back to wasting RAM on Electron apps."
 
 exit 0
