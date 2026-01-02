@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prog="ytdlp"
+usage(){
+  cat <<'EOF'
+Usage: $prog [OPTIONS] [yt-dlp options] <url>
+
+Enhanced wrapper for yt-dlp.
+Features:
+ - prompts for URL when omitted
+ - interactive quality selection (144,240,360,480,720,1080,max)
+ - `--quality/-q` to supply non-interactive quality
+ - `--audio` to extract audio (mp3)
+ - `--archive FILE` to use yt-dlp's download archive (default: ~/.yt-dlp-archive.txt)
+ - `--no-archive` to disable download archive
+ - `--keep` to keep intermediate files (`-k` passthrough)
+ - `--js-runtime RUNTIME` to pass `--js-runtimes` to yt-dlp
+ - `--cookies FILE` to pass cookies file
+ - `--proxy URL` to set proxy
+ - `--limit-rate RATE` to limit download rate (e.g. 500K, 2M)
+ - `--retries N` and `--sleep-interval SECS`
+ - `--list-formats` / `--list-thumbnails` (runs yt-dlp and exits)
+ - when run in ~/Videos, saves to ~/Videos/<uploader>/... automatically
+ - colored output messages (only on TTY)
+
+Examples:
+  $prog https://youtu.be/abcd
+  $prog -q 720 --audio https://youtu.be/abcd
+  $prog --archive myarch.txt <playlist_url>
+EOF
+}
+
+if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+# Colors (only enable sequences when stdout is a TTY)
+if [[ -t 1 ]]; then
+  RED="\e[31m"
+  GREEN="\e[32m"
+  YELLOW="\e[33m"
+  BLUE="\e[34m"
+  CYAN="\e[36m"
+  RESET="\e[0m"
+else
+  RED=""
+  GREEN=""
+  YELLOW=""
+  BLUE=""
+  CYAN=""
+  RESET=""
+fi
+info(){ printf "%b%s%b\n" "$CYAN" "$1" "$RESET"; }
+ok(){ printf "%b%s%b\n" "$GREEN" "$1" "$RESET"; }
+warn(){ printf "%b%s%b\n" "$YELLOW" "$1" "$RESET"; }
+err(){ printf "%b%s%b\n" "$RED" "$1" "$RESET"; }
+
+# Find yt-dlp
+if command -v yt-dlp >/dev/null 2>&1; then
+  YTDLP_CMD=(yt-dlp)
+elif python -c "import yt_dlp" >/dev/null 2>&1; then
+  YTDLP_CMD=(python -m yt_dlp)
+else
+  err "yt-dlp not found. Install via package manager or 'pip install -U yt-dlp'"
+  exit 2
+fi
+
+# Defaults
+quality=""
+audio=0
+# archive default will be set to ~/.yt-dlp-archive.txt if user doesn't supply one
+archive=""
+no_archive=0
+keep_intermediate=0
+js_runtime=""
+cookies_file=""
+proxy=""
+limit_rate=""
+retries=""
+sleep_interval=""
+list_formats=0
+list_thumbnails=0
+out_template=""
+yes=0
+URL=""
+extra_args=()
+
+select_with_menu(){
+  # args: prompt default_index options...
+  prompt="$1"; shift
+  default_index=$(( $1 - 1 )); shift  # 1-based to 0-based
+  options=("$@")
+  PS3="$prompt (default ${options[$default_index]}): "
+  select choice in "${options[@]}"; do
+    if [[ -n "$choice" ]]; then
+      printf "%s\n" "$choice"
+      break
+    elif [[ -z "$REPLY" ]]; then
+      printf "%s\n" "${options[$default_index]}"
+      break
+    else
+      echo "Invalid option. Try again."
+    fi
+  done
+}
+
+# Parse options (stop at first non-option that looks like URL or filename)
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -q|--quality)
+      quality="$2"; shift 2;;
+    --no-archive) no_archive=1; shift;;
+    --keep) keep_intermediate=1; extra_args+=("-k"); shift;;
+    --js-runtime) js_runtime="$2"; shift 2;;
+    --js-runtime=*) js_runtime="${1#*=}"; shift;;
+    --cookies) cookies_file="$2"; shift 2;;
+    --cookies=*) cookies_file="${1#*=}"; shift;;
+    --proxy) proxy="$2"; shift 2;;
+    --proxy=*) proxy="${1#*=}"; shift;;
+    --limit-rate) limit_rate="$2"; shift 2;;
+    --limit-rate=*) limit_rate="${1#*=}"; shift;;
+    --retries) retries="$2"; shift 2;;
+    --retries=*) retries="${1#*=}"; shift;;
+    --sleep-interval) sleep_interval="$2"; shift 2;;
+    --sleep-interval=*) sleep_interval="${1#*=}"; shift;;
+    --list-formats) list_formats=1; shift;;
+    --list-thumbnails) list_thumbnails=1; shift;;
+    --quality=*) quality="${1#*=}"; shift;;
+    --audio) audio=1; shift;;
+    --archive) archive="$2"; shift 2;;
+    --archive=*) archive="${1#*=}"; shift;;
+    -o|--output) out_template="$2"; shift 2;;
+    --output=*) out_template="${1#*=}"; shift;;
+    --yes|-y) yes=1; shift;;
+    -h|--help) usage; exit 0;;
+    --) shift; break;;
+    -*) extra_args+=("$1"); shift;;
+    *)
+      if [[ -z "$URL" && ( "$1" =~ ^https?:// || "$1" == *youtube.* || "$1" == *youtu.be* ) ]]; then
+        URL="$1"
+      else
+        extra_args+=("$1")
+      fi
+      shift;;
+  esac
+done
+
+if [[ -z "$URL" ]]; then
+  if [[ -t 0 ]]; then
+    read -rp "Enter URL (video/playlist/channel): " URL
+    URL=${URL## }
+  else
+    err "No URL provided and not running interactively"
+    exit 1
+  fi
+fi
+
+# Detect playlist-like URL for output naming
+is_playlist=0
+if [[ "$URL" == *"list="* || "$URL" == *"playlist"* || "$URL" == *"/channel/"* || "$URL" == *"/user/"* || "$URL" == *"/c/"* ]]; then
+  is_playlist=1
+fi
+
+# Default output template
+if [[ -n "$out_template" ]]; then
+  OUT="${out_template}"
+else
+  if [[ $is_playlist -eq 1 ]]; then
+    OUT='%(playlist_index)s - %(title)s [%(id)s].%(ext)s'
+  else
+    OUT='%(title)s [%(id)s].%(ext)s'
+  fi
+fi
+
+# Quality selection (interactive unless --quality supplied)
+FMT='bestvideo+bestaudio/best'
+if [[ -n "$quality" ]]; then
+  RES="$quality"
+else
+  if [[ -t 0 ]]; then
+    # use bash select menu
+    RES=$(select_with_menu "Choose quality" 7 "144" "240" "360" "480" "720" "1080" "max")
+  else
+    RES=max
+  fi
+fi
+
+if [[ "$RES" == "max" ]]; then
+  FMT='bestvideo+bestaudio/best'
+else
+  FMT="bestvideo[height<=${RES}]+bestaudio/best"
+fi
+
+# If audio mode requested, adjust format and add extraction options
+audio_args=()
+if [[ $audio -eq 1 ]]; then
+  audio_args+=("--extract-audio" "--audio-format" "mp3")
+  # prefer bestaudio when extracting
+  FMT='bestaudio'
+fi
+
+# If in ~/Videos, try to place inside ~/Videos/<uploader>
+OUTDIR_PREFIX=""
+if [[ "$PWD" == "$HOME/Videos" || "$PWD" == "$HOME/Videos/" ]]; then
+  info "Working in ~/Videos — will attempt to place downloads in channel subfolders"
+  # attempt to get uploader/channel name from yt-dlp (first entry)
+  uploader=$("${YTDLP_CMD[@]}" --no-warnings --skip-download --get-filename -o '%(uploader)s' "$URL" 2>/dev/null | head -n1 || true)
+  uploader=${uploader:-Unknown}
+  # sanitize uploader for filesystem (replace / with -)
+  uploader=${uploader//\//-}
+  OUTDIR_PREFIX="$PWD/$uploader"
+  mkdir -p "$OUTDIR_PREFIX"
+  if [[ $is_playlist -eq 1 ]]; then
+    OUT="$OUTDIR_PREFIX/%(playlist_index)s - %(title)s.%(ext)s"
+  else
+    OUT="$OUTDIR_PREFIX/%(title)s.%(ext)s"
+  fi
+fi
+
+# If no archive specified, use default at ~/.yt-dlp-archive.txt unless user opted out
+if [[ -z "$archive" && $no_archive -eq 0 ]]; then
+  archive="$HOME/.yt-dlp-archive.txt"
+  # ensure the archive file exists
+  mkdir -p "$(dirname "$archive")" 2>/dev/null || true
+  : > "$archive" 2>/dev/null || true
+  info "Using archive: $archive"
+fi
+
+# Check if file exists for single videos
+if [[ $is_playlist -eq 0 && -t 0 ]]; then
+  filename_cmd=("${YTDLP_CMD[@]}" --get-filename -f "$FMT" -o "$OUT" "$URL")
+  expected_file=$("${filename_cmd[@]}" 2>/dev/null)
+  if [[ -f "$expected_file" ]]; then
+    info "File '$expected_file' already exists."
+    action=$(select_with_menu "What to do?" 1 "Skip" "Redownload")
+    if [[ "$action" == "Skip" ]]; then
+      info "Skipping download."
+      exit 0
+    elif [[ "$action" == "Redownload" ]]; then
+      # Remove existing file and disable archive for redownload
+      rm "$expected_file" 2>/dev/null || true
+      no_archive=1
+    fi
+  fi
+fi
+
+# Build command
+cmd=("${YTDLP_CMD[@]}" -f "$FMT" -o "$OUT")
+if [[ -n "$archive" && $no_archive -eq 0 ]]; then
+  cmd+=("--download-archive" "$archive")
+fi
+
+# Apply optional arguments
+if [[ -n "$js_runtime" ]]; then
+  cmd+=("--js-runtimes" "$js_runtime")
+fi
+if [[ -n "$cookies_file" ]]; then
+  cmd+=("--cookies" "$cookies_file")
+fi
+if [[ -n "$proxy" ]]; then
+  cmd+=("--proxy" "$proxy")
+fi
+if [[ -n "$limit_rate" ]]; then
+  cmd+=("--limit-rate" "$limit_rate")
+fi
+if [[ -n "$retries" ]]; then
+  cmd+=("--retries" "$retries")
+fi
+if [[ -n "$sleep_interval" ]]; then
+  cmd+=("--sleep-interval" "$sleep_interval")
+fi
+cmd+=("$URL")
+
+# If user requested listing formats or thumbnails, run that and exit
+if [[ $list_formats -eq 1 ]]; then
+  info "Listing formats for $URL"
+  "${YTDLP_CMD[@]}" --list-formats "$URL"
+  exit 0
+fi
+if [[ $list_thumbnails -eq 1 ]]; then
+  info "Listing thumbnails for $URL"
+  "${YTDLP_CMD[@]}" --list-thumbnails "$URL"
+  exit 0
+fi
+
+info "Running: ${cmd[*]}"
+"${cmd[@]}"
